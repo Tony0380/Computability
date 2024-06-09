@@ -142,4 +142,18 @@ public class DFA {
             }
         }
     }
+
+    /**
+     * Get the state with the given name.
+     * @param name The name of the state.
+     * @return The state with the given name.
+     */
+    public State getState(String name) {
+        for (State state : States) {
+            if (state.getName().equals(name)) {
+                return state;
+            }
+        }
+        return null;
+    }
 }
