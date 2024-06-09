@@ -1,6 +1,8 @@
 # Computability
+<p>
 <img src="https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white">
 <img src="https://img.shields.io/static/v1?style=for-the-badge&message=Gradle&color=02303A&logo=Gradle&logoColor=FFFFFF&label=">
+</p>
 <h3>What does "Computability" means?</h3>
 
 <p>
