@@ -1,0 +1,22 @@
+name: publish
+on: [push]
+jobs:
+  publish-computability-image:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v1
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build the Computability Docker image
+      run: |
+        docker build . --tag ghcr.io/Tony0380/computability-all:latest
+        docker run ghcr.io/Tony0380/computability-all:latest
+        docker push ghcr.io/Tony0380/computability-all:latest
+    - name: Publish the Computability Docker image
+      run: |
+        echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u Tony0380 --password-stdin
+        docker push ghcr.io/Tony0380/computability-all:latest
