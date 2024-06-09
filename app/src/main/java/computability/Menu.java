@@ -1,6 +1,6 @@
 package computability;
-import java.util.Scanner;
-
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 public class Menu {
 
     private String choice;
@@ -24,12 +24,16 @@ public class Menu {
 
     private boolean selectOption() {
         boolean exit = false;
-        Scanner scanner = new Scanner(System.in);
-        choice = scanner.nextLine();
-        scanner.close();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        try {
+            choice = reader.readLine();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
         switch (choice) {
             case "1":
-                System.out.println("DFA");
+                DFAmenu dfaMenu = new DFAmenu();
+                dfaMenu.run();
                 break;
             case "2":
                 System.out.println("Goodbye!");
