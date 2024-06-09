@@ -72,7 +72,7 @@ public class Transiction{
      * @return The name of the transiction.
      */
     public String getName() {
-        return start.getName() + " -> " + end.getName() + " on " + symbol;
+        return start.getName() + " x " + symbol + " -> " + end.getName();
     }
 
     /**
