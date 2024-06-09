@@ -1,14 +1,24 @@
-# Usa l'immagine di base di OpenJDK 19 JDK slim
-FROM openjdk:19-jdk-slim
+# Utilizza un'immagine base di Gradle per costruire il progetto
+FROM gradle:7.3.3-jdk11 AS build
 
-# Crea una directory /app all'interno del container
-RUN mkdir /app
-
-# Copia il file JAR nella directory /app del container
-COPY ./build/libs/computability-all.jar /app
-
-# Imposta la directory di lavoro all'interno del container
+# Imposta la directory di lavoro nel container
 WORKDIR /app
 
-# Definisce il comando di avvio dell'applicazione
-ENTRYPOINT ["java", "-jar", "computability-all.jar"]
+# Copia i file di build (build.gradle, settings.gradle) e la cartella src
+COPY build.gradle settings.gradle /app/
+COPY src /app/src
+
+# Esegui il build dell'applicazione
+RUN gradle build --no-daemon
+
+# Usa un'immagine base di Java per eseguire il progetto
+FROM openjdk:11-jre-slim
+
+# Imposta la directory di lavoro nel container
+WORKDIR /app
+
+# Copia il jar costruito dall'immagine di build
+COPY --from=build /app/build/libs/app.jar /app/app.jar
+
+# Definisce il comando di avvio
+CMD ["java", "-jar", "/app/app.jar"]
