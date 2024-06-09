@@ -159,6 +159,8 @@ public class DFAmenu {
      */
     public void run() {
         int choice;
+        System.out.print("\033[H\033[2J");
+        System.out.flush();
         do {
             choice = displayMenu();
             switch (choice) {

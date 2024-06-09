@@ -49,6 +49,8 @@ public class Menu {
     public void run() {
         boolean exit = false;
         while (!exit) {
+            System.out.print("\033[H\033[2J");
+            System.out.flush();
             welcome();
             exit = selectOption();
         }
