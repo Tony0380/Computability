@@ -85,6 +85,18 @@ public class DFAmenu {
         } catch (Exception e) {
             System.out.println("An error occurred. Please try again.");
         }
+        if(dfa.getStartState() == null) {
+            System.out.println("Is the state the start state? (y/n)");
+            String start = "";
+            try {
+                start = reader.readLine();
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
+            if (start.equals("y")) {
+                dfa.setStartState(dfa.getState(name));
+            }
+        }
         if (accepting.equals("y")) {
             dfa.setAccepting(name, true);
         }
