@@ -136,6 +136,12 @@ public class DFAmenu {
                 if (transiction.getStart().equals(get) && transiction.getSymbol() == symbol) {
                     System.out.println("Transiction is NON-deterministic.");
                     nonDeterministic = true;
+                    System.out.println("Premi un tasto per continuare...");
+                    try {
+                        System.in.read();
+                    } catch (Exception e) {
+                        System.out.println("An error occurred. Please try again.");
+                    }
                 }
             }
             if (!nonDeterministic) {
