@@ -110,4 +110,36 @@ public class DFA {
         builder.append("}");
         return builder.toString();
     }
+
+    /**
+     * Add a new state to the DFA.
+     * @param name The name of the new state.
+     */
+    public void addState(String name) {
+        States.add(new State(name));
+    }
+
+    /**
+     * Add a new transiction to the DFA.
+     * @param start The start state of the transiction.
+     * @param end The end state of the transiction.
+     * @param symbol The symbol of the transiction.
+     */
+    public void addTransiction(State start, State end, char symbol) {
+        Transictions.add(new Transiction(start, end, symbol));
+    }
+
+    /**
+     * Set whether the given state is accepting.
+     * @param name The name of the state.
+     * @param accepting True if the state is accepting, false otherwise.
+     */
+    public void setAccepting(String name, boolean accepting) {
+        for (State state : States) {
+            if (state.getName().equals(name)) {
+                state.setAccepting(accepting);
+                return;
+            }
+        }
+    }
 }
