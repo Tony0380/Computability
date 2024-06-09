@@ -152,6 +152,12 @@ public class DFAmenu {
      */
     public void printDFA() {
         System.out.println(dfa);
+        System.out.println("Premi un tasto per continuare...");
+        try {
+            System.in.read();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
     }
 
     /**

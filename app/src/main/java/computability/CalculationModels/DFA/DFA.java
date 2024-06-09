@@ -12,6 +12,7 @@ public class DFA {
     public DFA() {
         this.States = new ArrayList<>();
         this.Transictions = new ArrayList<>();
+        startState = null;
     }
     /**
      * Create a new DFA with the given states and transictions.
@@ -96,24 +97,36 @@ public class DFA {
         for (State state : States) {
             builder.append(state.getName()).append(", ");
         }
-        builder.delete(builder.length() - 2, builder.length());
+        if (!States.isEmpty()) {
+            builder.delete(builder.length() - 2, builder.length());
+        }
         builder.append("}\nΣ = {");
         for (Transiction transiction : Transictions) {
             builder.append(transiction.getSymbol()).append(", ");
         }
-        builder.delete(builder.length() - 2, builder.length());
+        if (!Transictions.isEmpty()) {
+            builder.delete(builder.length() - 2, builder.length());
+        }
         builder.append("}\nδ = {");
         for (Transiction transiction : Transictions) {
             builder.append(transiction.getName()).append(", ");
         }
-        builder.delete(builder.length() - 2, builder.length());
-        builder.append("}\nq0 = ").append(startState.getName()).append("\nF = {");
+        if (!Transictions.isEmpty()) {
+            builder.delete(builder.length() - 2, builder.length());
+        }
+        builder.append("}\nq0 = ");
+        if (startState != null) {
+            builder.append(startState.getName());
+        }
+        builder.append("\nF = {");
         for (State state : States) {
             if (state.isAccepting()) {
                 builder.append(state.getName()).append(", ");
             }
         }
-        builder.delete(builder.length() - 2, builder.length());
+        if (!States.isEmpty()) {
+            builder.delete(builder.length() - 2, builder.length());
+        }
         builder.append("}");
         return builder.toString();
     }
