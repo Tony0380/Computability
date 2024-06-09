@@ -115,6 +115,7 @@ public class DFAmenu {
         } catch (Exception e) {
             System.out.println("An error occurred. Please try again.");
         }
+
     }
 
     /**
