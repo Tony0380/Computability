@@ -64,10 +64,17 @@ public class DFA {
      * @return True if the string is accepted, false otherwise.
      */
     public boolean accepts(String input) {
+        if (startState == null || Transictions.isEmpty() || States.isEmpty()) {
+            return false;
+        }
         State currentState = startState;
         for (char symbol : input.toCharArray()) {
             currentState = getNextState(currentState, symbol);
+            if (currentState == null) {
+                return false;
+            }
         }
+        
         return currentState.isAccepting();
     }
 
