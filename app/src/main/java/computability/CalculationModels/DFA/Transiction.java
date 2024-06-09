@@ -9,8 +9,8 @@ public class Transiction{
     /**
      * Create a new transiction between the given states with the given symbol.
      * @param start The start state of the transiction.
-     * @param end
-     * @param symbol
+     * @param end The end state of the transiction.
+     * @param symbol The symbol of the transiction.
      * @return The transiction that was added.
      */
     public Transiction(State start, State end, char symbol) {
