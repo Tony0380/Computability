@@ -13,10 +13,10 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build the Computability Docker image
       run: |
-        docker build . --tag ghcr.io/Tony0380/computability-all:latest
-        docker run ghcr.io/Tony0380/computability-all:latest
-        docker push ghcr.io/Tony0380/computability-all:latest
+        docker build . --tag ghcr.io/tony0380/computability-all:latest
+        docker run ghcr.io/tony0380/computability-all:latest
+        docker push ghcr.io/tony0380/computability-all:latest
     - name: Publish the Computability Docker image
       run: |
         echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u Tony0380 --password-stdin
-        docker push ghcr.io/Tony0380/computability-all:latest
+        docker push ghcr.io/tony0380/computability-all:latest
