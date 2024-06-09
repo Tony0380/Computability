@@ -1,11 +1,11 @@
-# Computability
+# 🧮 Computability
 [![Java CI with Gradle](https://github.com/Tony0380/Computability/actions/workflows/gradle.yml/badge.svg)](https://github.com/Tony0380/Computability/actions/workflows/gradle.yml)
 [![Gradle Package](https://github.com/Tony0380/Computability/actions/workflows/gradle-publish.yml/badge.svg)](https://github.com/Tony0380/Computability/actions/workflows/gradle-publish.yml)
 <p>
 <img src="https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white">
 <img src="https://img.shields.io/static/v1?style=for-the-badge&message=Gradle&color=02303A&logo=Gradle&logoColor=FFFFFF&label=">
 </p>
-<h3>What does "Computability" means?</h3>
+<h3>👨‍💻 What does "Computability" means?</h3>
 
 <p>
 Everyone has their own theory of what it means, in this repository I will analyze computability from the point of view of "recognizing" something, in this case languages.
