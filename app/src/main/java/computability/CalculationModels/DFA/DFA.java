@@ -101,8 +101,15 @@ public class DFA {
             builder.delete(builder.length() - 2, builder.length());
         }
         builder.append("}\nΣ = {");
+        List<Character> symbols = new ArrayList<>();
         for (Transiction transiction : Transictions) {
-            builder.append(transiction.getSymbol()).append(", ");
+            char symbol = transiction.getSymbol();
+            if (!symbols.contains(symbol)) {
+                symbols.add(symbol);
+            }
+        }
+        for (char symbol : symbols) {
+            builder.append(symbol).append(", ");
         }
         if (!Transictions.isEmpty()) {
             builder.delete(builder.length() - 2, builder.length());

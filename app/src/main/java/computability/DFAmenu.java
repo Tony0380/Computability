@@ -78,6 +78,10 @@ public class DFAmenu {
         } catch (Exception e) {
             System.out.println("An error occurred. Please try again.");
         }
+        if (dfa.getState(name) != null) {
+            System.out.println("State with the same name already exists.");
+            return;
+        }
         dfa.addState(name);
         System.out.println("Is the state accepting? (y/n)");
         String accepting = "";
@@ -100,6 +104,16 @@ public class DFAmenu {
         }
         if (accepting.equals("y")) {
             dfa.setAccepting(name, true);
+        }
+        if (accepting.equals("y")) {
+            dfa.setAccepting(name, true);
+        }
+        System.out.println("State added correctly.");
+        System.out.println("Press any key to continue...");
+        try {
+            System.in.read();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
         }
     }
 
@@ -136,7 +150,7 @@ public class DFAmenu {
                 if (transiction.getStart().equals(get) && transiction.getSymbol() == symbol) {
                     System.out.println("Transiction is NON-deterministic.");
                     nonDeterministic = true;
-                    System.out.println("Premi un tasto per continuare...");
+                    System.out.println("Press any key to continue...");
                     try {
                         System.in.read();
                     } catch (Exception e) {
@@ -158,7 +172,7 @@ public class DFAmenu {
      */
     public void printDFA() {
         System.out.println(dfa);
-        System.out.println("Premi un tasto per continuare...");
+        System.out.println("Press any key to continue...");
         try {
             System.in.read();
         } catch (Exception e) {
