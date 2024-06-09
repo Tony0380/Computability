@@ -1,11 +1,18 @@
 package computability.CalculationModels.DFA;
 import java.util.List;
-
+import java.util.ArrayList;
 public class DFA {
     private List<State> States;
     private List<Transiction> Transictions;
     private State startState;
 
+    /**
+     * Create a new DFA with no states or transictions.
+     */
+    public DFA() {
+        this.States = new ArrayList<>();
+        this.Transictions = new ArrayList<>();
+    }
     /**
      * Create a new DFA with the given states and transictions.
      * @param states The states of the DFA.

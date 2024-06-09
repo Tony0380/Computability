@@ -1,19 +1,24 @@
 package computability;
-import java.util.Scanner;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import computability.CalculationModels.DFA.DFA;
 import computability.CalculationModels.DFA.State;
 public class DFAmenu {
     private String input;
     private DFA dfa;
-    private Scanner scanner;
+    private BufferedReader reader;
 
+    public DFAmenu() {
+        reader = new BufferedReader(new InputStreamReader(System.in));
+        dfa = new DFA();
+    }
     /**
      * Create a new DFA menu for the given DFA.
      * @param dfa The DFA to create the menu for.
      */
     public DFAmenu(DFA dfa) {
         this.dfa = dfa;
-        this.scanner = new Scanner(System.in);
+        reader = new BufferedReader(new InputStreamReader(System.in));
     }
 
     /**
@@ -28,7 +33,13 @@ public class DFAmenu {
         System.out.println("5. Print the DFA");
         System.out.println("6. Exit");
         System.out.print("Enter your choice: ");
-        return scanner.nextInt();
+        int choice = 0;
+        try {
+            choice = Integer.parseInt(reader.readLine());
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
+        return choice;
     }
 
     /**
@@ -36,7 +47,11 @@ public class DFAmenu {
      */
     public void checkString() {
         System.out.print("Enter a string to check: ");
-        input = scanner.next();
+        try {
+            input = reader.readLine();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
         if (dfa.accepts(input)) {
             System.out.println("The string is accepted by the DFA.");
         } else {
@@ -56,10 +71,20 @@ public class DFAmenu {
      */
     public void addState() {
         System.out.print("Enter the name of the new state: ");
-        String name = scanner.next();
+        String name = "";
+        try {
+            name = reader.readLine();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
         dfa.addState(name);
         System.out.println("Is the state accepting? (y/n)");
-        String accepting = scanner.next();
+        String accepting = "";
+        try {
+            accepting = reader.readLine();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
         if (accepting.equals("y")) {
             dfa.setAccepting(name, true);
         }
@@ -70,13 +95,28 @@ public class DFAmenu {
      */
     public void addTransiction() {
         System.out.print("Enter the name of the start state: ");
-        String start = scanner.next();
+        String start = "";
+        try {
+            start = reader.readLine();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
         State get = dfa.getState(start);
         System.out.print("Enter the name of the end state: ");
-        String end = scanner.next();
+        String end = "";
+        try {
+            end = reader.readLine();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
         State endState = dfa.getState(end);
         System.out.print("Enter the symbol of the transiction: ");
-        char symbol = scanner.next().charAt(0);
+        char symbol = ' ';
+        try {
+            symbol = reader.readLine().charAt(0);
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
         if (get != null && endState != null) {
             dfa.addTransiction(get, endState, symbol);
         } else {
