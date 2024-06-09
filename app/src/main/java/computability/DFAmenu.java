@@ -3,6 +3,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import computability.CalculationModels.DFA.DFA;
 import computability.CalculationModels.DFA.State;
+import computability.CalculationModels.DFA.Transiction;
 public class DFAmenu {
     private String input;
     private DFA dfa;
@@ -129,8 +130,18 @@ public class DFAmenu {
         } catch (Exception e) {
             System.out.println("An error occurred. Please try again.");
         }
+        boolean nonDeterministic = false;
         if (get != null && endState != null) {
-            dfa.addTransiction(get, endState, symbol);
+            for (Transiction transiction : dfa.getTransictions()) {
+                if (transiction.getStart().equals(get) && transiction.getSymbol() == symbol) {
+                    System.out.println("Transiction is NON-deterministic.");
+                    nonDeterministic = true;
+                }
+            }
+            if (!nonDeterministic) {
+                dfa.addTransiction(get, endState, symbol);
+                System.out.println("Transiction added correctly.");
+            }
         } else {
             System.out.println("Invalid state name.");
         }
