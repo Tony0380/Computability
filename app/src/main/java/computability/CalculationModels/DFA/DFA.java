@@ -74,7 +74,6 @@ public class DFA {
                 return false;
             }
         }
-        
         return currentState.isAccepting();
     }
 
