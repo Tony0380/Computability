@@ -1,5 +1,6 @@
-package main.java.computability.DataStructures.Graph;
-
+package computability.DataStructures.Graph;
+import java.util.ArrayList;
+import java.util.List;
 public class Graph {
 
     private List<Node> nodes;
