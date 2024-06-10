@@ -81,7 +81,7 @@ public class Transiction{
      */
     @Override
     public String toString() {
-        return "δ : " + start.getName() + " x " + symbol + " -> " + end.getName();
+        return "δ : " + getName();
     }
 
     /**
