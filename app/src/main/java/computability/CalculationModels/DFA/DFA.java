@@ -65,6 +65,9 @@ public class DFA {
      */
     public boolean accepts(String input) {
         if (startState == null || Transictions.isEmpty() || States.isEmpty()) {
+            if (startState == null) {
+                System.out.println("Start state is not set");
+            }
             return false;
         }
         State currentState = startState;
