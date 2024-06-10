@@ -13,7 +13,7 @@ Everyone has their own theory of what it means, in this repository I will analyz
 </p>
 
 <p>
-For more information regarding the computability theory on which this repository is based, please see the "wiki" section
+For more information regarding the computability theory on which this repository is based, please see the <a href="https://github.com/Tony0380/Computability/wiki"> wiki</a> section
 </p>
 
 
