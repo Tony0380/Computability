@@ -2,8 +2,8 @@ package computability.CalculationModels.DFA;
 import java.util.List;
 import java.util.ArrayList;
 public class DFA {
-    private List<State> States;
-    private List<Transiction> Transictions;
+    final private List<State> States;
+    final private List<Transiction> Transictions;
     private State startState;
 
     /**
