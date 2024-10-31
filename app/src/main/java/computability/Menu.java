@@ -1,6 +1,9 @@
 package computability;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import computability.Controllers.DFAController;
+
+import computability.Controllers.DFAController;
 public class Menu {
 
     private String choice;
@@ -32,7 +35,7 @@ public class Menu {
         }
         switch (choice) {
             case "1":
-                DFAmenu dfaMenu = new DFAmenu();
+                DFAController dfaMenu = new DFAController();
                 dfaMenu.run();
                 break;
             case "2":

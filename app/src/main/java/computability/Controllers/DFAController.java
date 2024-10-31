@@ -1,15 +1,15 @@
-package computability;
+package computability.Controllers;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import computability.CalculationModels.DFA.DFA;
 import computability.CalculationModels.DFA.State;
 import computability.CalculationModels.DFA.Transiction;
-public class DFAmenu {
+public class DFAController {
     private String input;
     private DFA dfa;
     private BufferedReader reader;
 
-    public DFAmenu() {
+    public DFAController() {
         reader = new BufferedReader(new InputStreamReader(System.in));
         dfa = new DFA();
     }
@@ -17,7 +17,7 @@ public class DFAmenu {
      * Create a new DFA menu for the given DFA.
      * @param dfa The DFA to create the menu for.
      */
-    public DFAmenu(DFA dfa) {
+    public DFAController(DFA dfa) {
         this.dfa = dfa;
         reader = new BufferedReader(new InputStreamReader(System.in));
     }
