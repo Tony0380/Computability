@@ -158,6 +158,14 @@ public class DFA {
     }
 
     /**
+     * Add a new state to the DFA.
+     * @param state The new state.
+     */
+    public void addState(State state) {
+        States.add(state);
+    }
+
+    /**
      * Add a new transiction to the DFA.
      * @param start The start state of the transiction.
      * @param end The end state of the transiction.
