@@ -1,15 +1,16 @@
-package computability.CalculationModels.DFA;
-import computability.DataStructures.Graph.Node;
-public class State extends Node{
+package computability.calculation.models;
+
+public class State{
 
     private boolean accepting;
+    private String name;
 
     /**
      * Create a new state with the given name.
      * @param name The name of the state.
      */
     public State(String name) {
-        super(name);
+        this.name = name;
         this.accepting = false;
     }
 
@@ -34,7 +35,7 @@ public class State extends Node{
      * @return The name of the state.
      */
     public String getName() {
-        return super.getName();
+        return name;
     }
 
     /**

@@ -1,9 +1,11 @@
-package computability.Controllers;
+package computability.controllers;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import computability.CalculationModels.DFA.DFA;
-import computability.CalculationModels.DFA.State;
-import computability.CalculationModels.DFA.Transiction;
+
+import computability.calculation.models.DFA;
+import computability.calculation.models.State;
+import computability.calculation.models.Transiction;
 public class DFAController {
     private String input;
     private DFA dfa;

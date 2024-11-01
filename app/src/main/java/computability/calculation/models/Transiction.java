@@ -1,4 +1,4 @@
-package computability.CalculationModels.DFA;
+package computability.calculation.models;
 
 public class Transiction{
 
