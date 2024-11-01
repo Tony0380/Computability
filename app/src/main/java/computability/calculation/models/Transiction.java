@@ -81,7 +81,7 @@ public class Transiction{
      */
     @Override
     public String toString() {
-        return "δ : " + getName();
+        return "D : " + getName();
     }
 
     /**
