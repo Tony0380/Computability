@@ -111,7 +111,7 @@ public class DFA {
         if (!States.isEmpty()) {
             builder.delete(builder.length() - 2, builder.length());
         }
-        builder.append("}\nΣ = {");
+        builder.append("}\nE = {");
         List<Character> symbols = new ArrayList<>();
         for (Transiction transiction : Transictions) {
             char symbol = transiction.getSymbol();
@@ -125,7 +125,7 @@ public class DFA {
         if (!Transictions.isEmpty()) {
             builder.delete(builder.length() - 2, builder.length());
         }
-        builder.append("}\nδ = {");
+        builder.append("}\nD = {");
         for (Transiction transiction : Transictions) {
             builder.append(transiction.getName()).append(", ");
         }

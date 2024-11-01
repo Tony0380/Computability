@@ -154,6 +154,7 @@ public class DFAController {
         }
         if (get != null && endState != null) {
             try {
+                dfa.addTransiction(get, endState, symbol);
                 for (Transiction transiction : dfa.getTransictions()) {
                     if (transiction.getStart().equals(get) && transiction.getSymbol() == symbol) {
                         throw new notADFA("Transictions from the same state with the same symbol are not allowed.");
