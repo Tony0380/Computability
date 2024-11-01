@@ -3,9 +3,14 @@ package computability.controllers;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
+import computability.calculation.exceptions.notADFA;
 import computability.calculation.models.DFA;
 import computability.calculation.models.State;
 import computability.calculation.models.Transiction;
+
+/**
+ * A controller for a DFA.
+ */
 public class DFAController {
     private String input;
     private DFA dfa;
@@ -147,23 +152,16 @@ public class DFAController {
         } catch (Exception e) {
             System.out.println("An error occurred. Please try again.");
         }
-        boolean nonDeterministic = false;
         if (get != null && endState != null) {
-            for (Transiction transiction : dfa.getTransictions()) {
-                if (transiction.getStart().equals(get) && transiction.getSymbol() == symbol) {
-                    System.out.println("Transiction is NON-deterministic.");
-                    nonDeterministic = true;
-                    System.out.println("Press any key to continue...");
-                    try {
-                        System.in.read();
-                    } catch (Exception e) {
-                        System.out.println("An error occurred. Please try again.");
+            try {
+                for (Transiction transiction : dfa.getTransictions()) {
+                    if (transiction.getStart().equals(get) && transiction.getSymbol() == symbol) {
+                        throw new notADFA("Transictions from the same state with the same symbol are not allowed.");
                     }
                 }
-            }
-            if (!nonDeterministic) {
-                dfa.addTransiction(get, endState, symbol);
-                System.out.println("Transiction added correctly.");
+            } catch (notADFA e) {
+                System.out.println(e.getMessage());
+                dfa = e.FixDFA(dfa);
             }
         } else {
             System.out.println("Invalid state name.");
