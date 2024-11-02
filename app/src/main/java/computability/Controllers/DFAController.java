@@ -1,7 +1,11 @@
 package computability.controllers;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 import computability.calculation.exceptions.notADFA;
 import computability.calculation.models.DFA;
@@ -39,7 +43,9 @@ public class DFAController {
         System.out.println("3. Add a new state to the DFA");
         System.out.println("4. Add a new transiction to the DFA");
         System.out.println("5. Print the DFA");
-        System.out.println("6. Exit");
+        System.out.println("6. Save DFA");
+        System.out.println("7. Load DFA");
+        System.out.println("8. Exit");
         System.out.print("Enter your choice: ");
         int choice = 0;
         try {
@@ -182,6 +188,73 @@ public class DFAController {
         }
     }
 
+
+    /**
+     * Save the DFA to a file.
+     */
+    public void saveDFA() {
+        System.out.print("Enter the name of the file to save the DFA: ");
+        String filename = "";
+        try {
+            filename = reader.readLine();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
+        FileOutputStream outFile;
+        try {
+            outFile = new FileOutputStream(filename);
+            ObjectOutputStream outStream = new ObjectOutputStream(outFile);
+            outStream.writeObject(dfa);
+            outStream.close();
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+            System.out.println("Press any key to continue...");
+            try {
+                System.in.read();
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
+        }
+        System.out.println("DFA saved correctly.");
+        System.out.println("Press any key to continue...");
+        try {
+            System.in.read();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
+    }
+
+    public void loadDFA() {
+        System.out.print("Enter the name of the file to load the DFA: ");
+        String filename = "";
+        try {
+            filename = reader.readLine();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
+        try {
+            FileInputStream inFile = new FileInputStream(filename);
+            ObjectInputStream inStream = new ObjectInputStream(inFile);
+            dfa = (DFA) inStream.readObject();
+            inStream.close();
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+            System.out.println("Press any key to continue...");
+            try {
+                System.in.read();
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
+        }
+        System.out.println("DFA loaded correctly.");
+        System.out.println("Press any key to continue...");
+        try {
+            System.in.read();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
+    }
+
     /**
      * Run the DFA menu.
      */
@@ -209,11 +282,17 @@ public class DFAController {
                     printDFA();
                     break;
                 case 6:
+                    saveDFA();
+                    break;
+                case 7:
+                    loadDFA();
+                    break;
+                case 8:
                     System.out.println("Exiting...");
                     break;
                 default:
                     System.out.println("Invalid choice.");
             }
-        } while (choice != 6);
+        } while (choice != 8);
     }
 }
