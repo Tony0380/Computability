@@ -1,4 +1,4 @@
-package computability.controllers;
+package computability.controller;
 
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -7,10 +7,10 @@ import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
-import computability.calculation.exceptions.notADFA;
-import computability.calculation.models.DFA;
-import computability.calculation.models.State;
-import computability.calculation.models.Transiction;
+import computability.calculation.exception.notADFA;
+import computability.calculation.model.DFA;
+import computability.calculation.model.State;
+import computability.calculation.model.Transiction;
 
 /**
  * A controller for a DFA.
@@ -247,15 +247,32 @@ public class DFAController {
             System.out.flush();
             choice = displayMenu();
             switch (choice) {
-                case 1 -> checkString();
-                case 2 -> checkStartState();
-                case 3 -> addState();
-                case 4 -> addTransiction();
-                case 5 -> printDFA();
-                case 6 -> saveDFA();
-                case 7 -> loadDFA();
-                case 8 -> System.out.println("Exiting...");
-                default -> System.out.println("Invalid choice.");
+                case 1:
+                    checkString();
+                    break;
+                case 2:
+                    checkStartState();
+                    break;
+                case 3:
+                    addState();
+                    break;
+                case 4:
+                    addTransiction();
+                    break;
+                case 5:
+                    printDFA();
+                    break;
+                case 6:
+                    saveDFA();
+                    break;
+                case 7:
+                    loadDFA();
+                    break;
+                case 8:
+                    System.out.println("Exiting...");
+                    break;
+                default:
+                    System.out.println("Invalid choice.");
             }
         } while (choice != 8);
     }

@@ -1,4 +1,4 @@
-package computability.calculation.models;
+package computability.calculation.model;
 
 import java.io.Serializable;
 
