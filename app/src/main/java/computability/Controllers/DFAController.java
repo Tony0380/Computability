@@ -20,6 +20,18 @@ public class DFAController {
     private DFA dfa;
     private BufferedReader reader;
 
+    /**
+     * Wait for the user to press a key to continue.
+     */
+    private void pressToContinue() {
+        System.out.println("Press any key to continue...");
+        try {
+            System.in.read();
+        } catch (Exception e) {
+            System.out.println("An error occurred. Please try again.");
+        }
+    }
+
     public DFAController() {
         reader = new BufferedReader(new InputStreamReader(System.in));
         dfa = new DFA();
@@ -122,13 +134,7 @@ public class DFAController {
             dfa.setAccepting(name, true);
         }
         System.out.println("State added correctly.");
-        System.out.println("Press any key to continue...");
-        try {
-            System.in.read();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
-
+        pressToContinue();
     }
 
     /**
@@ -180,12 +186,7 @@ public class DFAController {
      */
     public void printDFA() {
         System.out.println(dfa);
-        System.out.println("Press any key to continue...");
-        try {
-            System.in.read();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        pressToContinue();
     }
 
 
@@ -208,20 +209,10 @@ public class DFAController {
             outStream.close();
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
-            System.out.println("Press any key to continue...");
-            try {
-                System.in.read();
-            } catch (Exception e) {
-                System.out.println("An error occurred. Please try again.");
-            }
+            pressToContinue();
         }
         System.out.println("DFA saved correctly.");
-        System.out.println("Press any key to continue...");
-        try {
-            System.in.read();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        pressToContinue();
     }
 
     public void loadDFA() {
@@ -239,20 +230,10 @@ public class DFAController {
             inStream.close();
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
-            System.out.println("Press any key to continue...");
-            try {
-                System.in.read();
-            } catch (Exception e) {
-                System.out.println("An error occurred. Please try again.");
-            }
+            pressToContinue();
         }
         System.out.println("DFA loaded correctly.");
-        System.out.println("Press any key to continue...");
-        try {
-            System.in.read();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        pressToContinue();
     }
 
     /**
