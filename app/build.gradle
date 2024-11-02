@@ -28,6 +28,10 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
 }
 
+test {
+    useJUnitPlatform()
+}
+
 application {
     // Define the main class for the application.
     mainClass = 'computability.App'
