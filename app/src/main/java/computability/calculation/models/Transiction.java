@@ -1,6 +1,8 @@
 package computability.calculation.models;
 
-public class Transiction{
+import java.io.Serializable;
+
+public class Transiction implements Serializable{
 
     private State start;
     private State end;

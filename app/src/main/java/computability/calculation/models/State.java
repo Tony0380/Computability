@@ -1,6 +1,8 @@
 package computability.calculation.models;
 
-public class State{
+import java.io.Serializable;
+
+public class State implements Serializable {
 
     private boolean accepting;
     private String name;
