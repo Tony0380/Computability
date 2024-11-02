@@ -1,9 +1,10 @@
 package computability.calculation.models;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DFA {
+public class DFA implements Serializable{
     final private List<State> States;
     final private List<Transiction> Transictions;
     private State startState;
