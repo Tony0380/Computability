@@ -7,6 +7,11 @@ public class Keyboard {
 
     private static BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
+
+    /**
+     * Read a string from the keyboard.
+     * @return The string read from the keyboard.
+     */
     public static String readString() {
         try {
             return reader.readLine();
@@ -16,6 +21,10 @@ public class Keyboard {
         }
     }
 
+    /**
+     * Read an integer from the keyboard.
+     * @return The integer read from the keyboard.
+     */
     public static int readInt() {
         try {
             return Integer.parseInt(readString());
@@ -25,6 +34,11 @@ public class Keyboard {
         }
     }
 
+
+    /**
+     *  Read a double from the keyboard.
+     * @return The double read from the keyboard.
+     */
     public static double readDouble() {
         try {
             return Double.parseDouble(readString());
@@ -34,6 +48,10 @@ public class Keyboard {
         }
     }
 
+    /**
+     * Read a character from the keyboard.
+     * @return The character read from the keyboard.
+     */
     public static char readChar() {
         String input = readString();
         if (input.length() > 0) {
@@ -44,6 +62,10 @@ public class Keyboard {
         }
     }
 
+    /**
+     * Read a boolean from the keyboard.
+     * @return The boolean read from the keyboard.
+     */
     public static boolean readBoolean() {
         try {
             return Boolean.parseBoolean(readString());
@@ -53,7 +75,7 @@ public class Keyboard {
         }
     }
 
-        /**
+    /**
      * Wait for the user to press a key to continue.
      */
     public static void pressToContinue() {
