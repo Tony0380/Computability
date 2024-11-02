@@ -3,8 +3,8 @@ package computability;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import computability.calculation.models.DFA;
-import computability.calculation.models.State;
+import computability.calculation.model.DFA;
+import computability.calculation.model.State;
 
 /**
  * Test class for the DFA class.

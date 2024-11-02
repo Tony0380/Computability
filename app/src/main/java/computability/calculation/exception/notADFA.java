@@ -1,9 +1,9 @@
-package computability.calculation.exceptions;
+package computability.calculation.exception;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
-import computability.calculation.models.DFA;
+import computability.calculation.model.DFA;
 
 public class notADFA extends Exception {
     public notADFA(String message) {

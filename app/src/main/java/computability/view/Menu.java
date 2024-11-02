@@ -1,8 +1,8 @@
-package computability;
+package computability.view;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
-import computability.controllers.DFAController;
+import computability.controller.DFAController;
 public class Menu {
 
     private String choice;
