@@ -1,8 +1,8 @@
 package computability.view;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 
 import computability.controller.DFAController;
+import computability.controller.Keyboard;
+
 public class Menu {
 
     private String choice;
@@ -26,12 +26,7 @@ public class Menu {
 
     private boolean selectOption() {
         boolean exit = false;
-        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-        try {
-            choice = reader.readLine();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        choice = Keyboard.readString();
         switch (choice) {
             case "1":
                 DFAController dfaMenu = new DFAController();

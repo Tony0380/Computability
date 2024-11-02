@@ -1,9 +1,7 @@
 package computability.controller;
 
-import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
@@ -18,31 +16,25 @@ import computability.calculation.model.Transiction;
 public class DFAController {
     private String input;
     private DFA dfa;
-    private BufferedReader reader;
-
-    /**
-     * Wait for the user to press a key to continue.
-     */
-    private void pressToContinue() {
-        System.out.println("Press any key to continue...");
-        try {
-            System.in.read();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
-    }
 
     public DFAController() {
-        reader = new BufferedReader(new InputStreamReader(System.in));
         dfa = new DFA();
     }
+
     /**
      * Create a new DFA menu for the given DFA.
      * @param dfa The DFA to create the menu for.
      */
     public DFAController(DFA dfa) {
         this.dfa = dfa;
-        reader = new BufferedReader(new InputStreamReader(System.in));
+    }
+
+    /**
+     * Wait for the user to press a key to continue.
+     */
+    private void pressToContinue() {
+        System.out.println("Press any key to continue...");
+        Keyboard.readChar();
     }
 
     /**
@@ -59,13 +51,7 @@ public class DFAController {
         System.out.println("7. Load DFA");
         System.out.println("8. Exit");
         System.out.print("Enter your choice: ");
-        int choice = 0;
-        try {
-            choice = Integer.parseInt(reader.readLine());
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
-        return choice;
+        return Keyboard.readInt();
     }
 
     /**
@@ -73,16 +59,13 @@ public class DFAController {
      */
     public void checkString() {
         System.out.print("Enter a string to check: ");
-        try {
-            input = reader.readLine();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        input = Keyboard.readString();
         if (dfa.accepts(input)) {
             System.out.println("The string is accepted by the DFA.");
         } else {
             System.out.println("The string is not accepted by the DFA.");
         }
+        pressToContinue();
     }
 
     /**
@@ -90,6 +73,7 @@ public class DFAController {
      */
     public void checkStartState() {
         System.out.println("The start state of the DFA is: " + dfa.getStartState().getName());
+        pressToContinue();
     }
 
     /**
@@ -97,38 +81,20 @@ public class DFAController {
      */
     public void addState() {
         System.out.print("Enter the name of the new state: ");
-        String name = "";
-        try {
-            name = reader.readLine();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        String name = Keyboard.readString();
         if (dfa.getState(name) != null) {
             System.out.println("State with the same name already exists.");
             return;
         }
         dfa.addState(name);
         System.out.println("Is the state accepting? (y/n)");
-        String accepting = "";
-        try {
-            accepting = reader.readLine();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        String accepting = Keyboard.readString();
         if(dfa.getStartState() == null) {
             System.out.println("Is the state the start state? (y/n)");
-            String start = "";
-            try {
-                start = reader.readLine();
-            } catch (Exception e) {
-                System.out.println("An error occurred. Please try again.");
-            }
+            String start = Keyboard.readString();
             if (start.equals("y")) {
                 dfa.setStartState(dfa.getState(name));
             }
-        }
-        if (accepting.equals("y")) {
-            dfa.setAccepting(name, true);
         }
         if (accepting.equals("y")) {
             dfa.setAccepting(name, true);
@@ -142,28 +108,13 @@ public class DFAController {
      */
     public void addTransiction() {
         System.out.print("Enter the name of the start state: ");
-        String start = "";
-        try {
-            start = reader.readLine();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        String start = Keyboard.readString();
         State get = dfa.getState(start);
         System.out.print("Enter the name of the end state: ");
-        String end = "";
-        try {
-            end = reader.readLine();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        String end = Keyboard.readString();
         State endState = dfa.getState(end);
         System.out.print("Enter the symbol of the transiction: ");
-        char symbol = ' ';
-        try {
-            symbol = reader.readLine().charAt(0);
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        char symbol = Keyboard.readChar();
         if (get != null && endState != null) {
             try {
                 dfa.addTransiction(get, endState, symbol);
@@ -189,18 +140,12 @@ public class DFAController {
         pressToContinue();
     }
 
-
     /**
      * Save the DFA to a file.
      */
     public void saveDFA() {
         System.out.print("Enter the name of the file to save the DFA: ");
-        String filename = "";
-        try {
-            filename = reader.readLine();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        String filename = Keyboard.readString();
         FileOutputStream outFile;
         try {
             outFile = new FileOutputStream(filename);
@@ -217,12 +162,7 @@ public class DFAController {
 
     public void loadDFA() {
         System.out.print("Enter the name of the file to load the DFA: ");
-        String filename = "";
-        try {
-            filename = reader.readLine();
-        } catch (Exception e) {
-            System.out.println("An error occurred. Please try again.");
-        }
+        String filename = Keyboard.readString();
         try {
             FileInputStream inFile = new FileInputStream(filename);
             ObjectInputStream inStream = new ObjectInputStream(inFile);
