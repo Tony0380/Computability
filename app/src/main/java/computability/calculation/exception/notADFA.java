@@ -1,9 +1,7 @@
 package computability.calculation.exception;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
 import computability.calculation.model.DFA;
+import computability.controller.Keyboard;
 
 public class notADFA extends Exception {
     public notADFA(String message) {
@@ -26,13 +24,7 @@ public class notADFA extends Exception {
                     System.out.println("Transiction 1: " + dfa.getTransictions().get(i));
                     System.out.println("Transiction 2: " + dfa.getTransictions().get(j));
                     System.out.print("Choice: ");
-                    Integer choice = 1;
-                    try {
-                        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-                        choice = Integer.parseInt(reader.readLine());
-                    } catch (Exception e) {
-                        System.out.println("An error occurred. Please try again.");
-                    }
+                    int choice = Keyboard.readInt();
 
                     do {
                         if(choice == 1) {
