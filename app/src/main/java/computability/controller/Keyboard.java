@@ -53,4 +53,13 @@ public class Keyboard {
         }
     }
 
+        /**
+     * Wait for the user to press a key to continue.
+     */
+    public static void pressToContinue() {
+        System.out.println("Press any key to continue...");
+        Keyboard.readChar();
+    }
+
+
 }

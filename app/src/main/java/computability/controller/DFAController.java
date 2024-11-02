@@ -30,14 +30,6 @@ public class DFAController {
     }
 
     /**
-     * Wait for the user to press a key to continue.
-     */
-    private void pressToContinue() {
-        System.out.println("Press any key to continue...");
-        Keyboard.readChar();
-    }
-
-    /**
      * Display the menu and get the user's choice.
      * @return The user's choice.
      */
@@ -65,7 +57,7 @@ public class DFAController {
         } else {
             System.out.println("The string is not accepted by the DFA.");
         }
-        pressToContinue();
+        Keyboard.pressToContinue();
     }
 
     /**
@@ -73,7 +65,7 @@ public class DFAController {
      */
     public void checkStartState() {
         System.out.println("The start state of the DFA is: " + dfa.getStartState().getName());
-        pressToContinue();
+        Keyboard.pressToContinue();
     }
 
     /**
@@ -100,7 +92,7 @@ public class DFAController {
             dfa.setAccepting(name, true);
         }
         System.out.println("State added correctly.");
-        pressToContinue();
+        Keyboard.pressToContinue();
     }
 
     /**
@@ -137,7 +129,7 @@ public class DFAController {
      */
     public void printDFA() {
         System.out.println(dfa);
-        pressToContinue();
+        Keyboard.pressToContinue();
     }
 
     /**
@@ -154,10 +146,10 @@ public class DFAController {
             outStream.close();
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
-            pressToContinue();
+            Keyboard.pressToContinue();
         }
         System.out.println("DFA saved correctly.");
-        pressToContinue();
+        Keyboard.pressToContinue();
     }
 
     public void loadDFA() {
@@ -170,10 +162,10 @@ public class DFAController {
             inStream.close();
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
-            pressToContinue();
+            Keyboard.pressToContinue();
         }
         System.out.println("DFA loaded correctly.");
-        pressToContinue();
+        Keyboard.pressToContinue();
     }
 
     /**
