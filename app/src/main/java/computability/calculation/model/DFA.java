@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DFA implements Serializable{
-    final private List<State> States;
-    final private List<Transiction> Transictions;
-    private State startState;
+    final protected List<State> States;
+    final protected List<Transiction> Transictions;
+    protected State startState;
 
     /**
      * Create a new DFA with no states or transictions.
