@@ -5,7 +5,12 @@ import java.util.List;
 
 public class NFA extends DFA {
 
-    
+    protected static final char EPSILON = '$';
+
+    public static final char getEpsilon() {
+        return EPSILON;
+    }
+
     @Override
     /**
      * Check if the given string is accepted by the NFA.
@@ -51,7 +56,7 @@ public class NFA extends DFA {
     public List<State> getNexStates(State state, char symbol) {
         List<State> nextStates = new ArrayList<>();
         for (Transition t : Transitions) {
-            if (t.getStart().equals(state) && (t.getSymbol() == symbol || t.getSymbol() == '$')) {
+            if (t.getStart().equals(state) && (t.getSymbol() == symbol || t.getSymbol() == EPSILON)) {
                 nextStates.add(t.getEnd());
             }
         }
