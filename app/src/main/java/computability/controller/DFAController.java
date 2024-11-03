@@ -8,7 +8,7 @@ import java.io.ObjectOutputStream;
 import computability.calculation.exception.notADFA;
 import computability.calculation.model.DFA;
 import computability.calculation.model.State;
-import computability.calculation.model.Transiction;
+import computability.calculation.model.Transition;
 
 /**
  * A controller for a DFA.
@@ -98,7 +98,7 @@ public class DFAController {
     /**
      * Add a new transiction to the DFA.
      */
-    public void addTransiction() {
+    public void addTransition() {
         System.out.print("Enter the name of the start state: ");
         String start = Keyboard.readString();
         State get = dfa.getState(start);
@@ -109,9 +109,9 @@ public class DFAController {
         char symbol = Keyboard.readChar();
         if (get != null && endState != null) {
             try {
-                dfa.addTransiction(get, endState, symbol);
-                for (Transiction transiction : dfa.getTransictions()) {
-                    if (transiction.getStart().equals(get) && transiction.getSymbol() == symbol) {
+                dfa.addTransition(get, endState, symbol);
+                for (Transition transition : dfa.getTransitions()) {
+                    if (transition.getStart().equals(get) && transition.getSymbol() == symbol) {
                         throw new notADFA("Transictions from the same state with the same symbol are not allowed.");
                     }
                 }
@@ -189,7 +189,7 @@ public class DFAController {
                     addState();
                     break;
                 case 4:
-                    addTransiction();
+                    addTransition();
                     break;
                 case 5:
                     printDFA();

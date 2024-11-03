@@ -6,25 +6,25 @@ import java.util.List;
 
 public class DFA implements Serializable{
     final protected List<State> States;
-    final protected List<Transiction> Transictions;
+    final protected List<Transition> Transitions;
     protected State startState;
 
     /**
-     * Create a new DFA with no states or transictions.
+     * Create a new DFA with no states or transitions.
      */
     public DFA() {
         this.States = new ArrayList<>();
-        this.Transictions = new ArrayList<>();
+        this.Transitions = new ArrayList<>();
         startState = null;
     }
     /**
-     * Create a new DFA with the given states and transictions.
+     * Create a new DFA with the given states and transitions.
      * @param states The states of the DFA.
-     * @param transictions The transictions of the DFA.
+     * @param transitions The transitions of the DFA.
      */
-    public DFA(List<State> states, List<Transiction> transictions) {
+    public DFA(List<State> states, List<Transition> transitions) {
         this.States = states;
-        this.Transictions = transictions;
+        this.Transitions = transitions;
     }
 
     /**
@@ -36,11 +36,11 @@ public class DFA implements Serializable{
     }
 
     /**
-     * Get the transictions of the DFA.
-     * @return The transictions of the DFA.
+     * Get the transitions of the DFA.
+     * @return The transitions of the DFA.
      */
-    public List<Transiction> getTransictions() {
-        return Transictions;
+    public List<Transition> getTransitions() {
+        return Transitions;
     }
 
     /**
@@ -67,7 +67,7 @@ public class DFA implements Serializable{
      * @return True if the string is accepted, false otherwise.
      */
     public boolean accepts(String input) {
-        if (startState == null || Transictions.isEmpty() || States.isEmpty()) {
+        if (startState == null || Transitions.isEmpty() || States.isEmpty()) {
             if (startState == null) {
                 System.out.println("Start state is not set");
             }
@@ -90,9 +90,9 @@ public class DFA implements Serializable{
      * @return The next state for the given state and symbol.
      */
     private State getNextState(State state, char symbol) {
-        for (Transiction transiction : Transictions) {
-            if (transiction.getStart() == state && transiction.getSymbol() == symbol) {
-                return transiction.getEnd();
+        for (Transition transition : Transitions) {
+            if (transition.getStart() == state && transition.getSymbol() == symbol) {
+                return transition.getEnd();
             }
         }
         return null;
@@ -114,8 +114,8 @@ public class DFA implements Serializable{
         }
         builder.append("}\nE = {");
         List<Character> symbols = new ArrayList<>();
-        for (Transiction transiction : Transictions) {
-            char symbol = transiction.getSymbol();
+        for (Transition transition : Transitions) {
+            char symbol = transition.getSymbol();
             if (!symbols.contains(symbol)) {
                 symbols.add(symbol);
             }
@@ -123,14 +123,14 @@ public class DFA implements Serializable{
         for (char symbol : symbols) {
             builder.append(symbol).append(", ");
         }
-        if (!Transictions.isEmpty()) {
+        if (!Transitions.isEmpty()) {
             builder.delete(builder.length() - 2, builder.length());
         }
         builder.append("}\nD = {");
-        for (Transiction transiction : Transictions) {
-            builder.append(transiction.getName()).append(", ");
+        for (Transition transition : Transitions) {
+            builder.append(transition.getName()).append(", ");
         }
-        if (!Transictions.isEmpty()) {
+        if (!Transitions.isEmpty()) {
             builder.delete(builder.length() - 2, builder.length());
         }
         builder.append("}\nq0 = ");
@@ -167,13 +167,13 @@ public class DFA implements Serializable{
     }
 
     /**
-     * Add a new transiction to the DFA.
-     * @param start The start state of the transiction.
-     * @param end The end state of the transiction.
-     * @param symbol The symbol of the transiction.
+     * Add a new transition to the DFA.
+     * @param start The start state of the transition.
+     * @param end The end state of the transition.
+     * @param symbol The symbol of the transition.
      */
-    public void addTransiction(State start, State end, char symbol) {
-        Transictions.add(new Transiction(start, end, symbol));
+    public void addTransition(State start, State end, char symbol) {
+        Transitions.add(new Transition(start, end, symbol));
     }
 
     /**

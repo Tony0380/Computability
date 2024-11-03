@@ -30,13 +30,13 @@ public class nfaTest {
         nfa.addState(q2);
         nfa.addState(q3);
 
-        nfa.addTransiction(q0, q0, 'a');
-        nfa.addTransiction(q0, q0, 'b');
-        nfa.addTransiction(q0, q0, 'c');
+        nfa.addTransition(q0, q0, 'a');
+        nfa.addTransition(q0, q0, 'b');
+        nfa.addTransition(q0, q0, 'c');
 
-        nfa.addTransiction(q0, q1, 'a');
-        nfa.addTransiction(q1, q2, 'b');
-        nfa.addTransiction(q2, q3, 'b');
+        nfa.addTransition(q0, q1, 'a');
+        nfa.addTransition(q1, q2, 'b');
+        nfa.addTransition(q2, q3, 'b');
 
 
 

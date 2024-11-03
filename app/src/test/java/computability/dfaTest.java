@@ -29,17 +29,17 @@ public class dfaTest {
         dfa.addState(q2);
         dfa.addState(q3);
 
-        dfa.addTransiction(q0, q1, '0');
-        dfa.addTransiction(q0, q0, '1');
+        dfa.addTransition(q0, q1, '0');
+        dfa.addTransition(q0, q0, '1');
 
-        dfa.addTransiction(q1, q1, '0');
-        dfa.addTransiction(q1, q2, '1');
+        dfa.addTransition(q1, q1, '0');
+        dfa.addTransition(q1, q2, '1');
 
-        dfa.addTransiction(q2, q1, '0');
-        dfa.addTransiction(q2, q3, '1');
+        dfa.addTransition(q2, q1, '0');
+        dfa.addTransition(q2, q3, '1');
 
-        dfa.addTransiction(q3, q1, '0');
-        dfa.addTransiction(q3, q0, '1');
+        dfa.addTransition(q3, q1, '0');
+        dfa.addTransition(q3, q0, '1');
 
     }
 

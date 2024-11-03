@@ -12,7 +12,7 @@ public class NFA extends DFA {
      * @param input The string to check.
      */
     public boolean accepts(String input) {
-        if (startState == null || Transictions.isEmpty() || States.isEmpty()) {
+        if (startState == null || Transitions.isEmpty() || States.isEmpty()) {
             if (startState == null) {
                 System.out.println("Start state is not set");
             }
@@ -50,7 +50,7 @@ public class NFA extends DFA {
      */
     public List<State> getNexStates(State state, char symbol) {
         List<State> nextStates = new ArrayList<>();
-        for (Transiction t : Transictions) {
+        for (Transition t : Transitions) {
             if (t.getStart().equals(state) && (t.getSymbol() == symbol || t.getSymbol() == '$')) {
                 nextStates.add(t.getEnd());
             }

@@ -2,7 +2,7 @@ package computability.calculation.model;
 
 import java.io.Serializable;
 
-public class Transiction implements Serializable{
+public class Transition implements Serializable{
 
     private State start;
     private State end;
@@ -15,7 +15,7 @@ public class Transiction implements Serializable{
      * @param symbol The symbol of the transiction.
      * @return The transiction that was added.
      */
-    public Transiction(State start, State end, char symbol) {
+    public Transition(State start, State end, char symbol) {
         this.start = start;
         this.end = end;
         this.symbol = symbol;
