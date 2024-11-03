@@ -14,25 +14,28 @@ public class notADFA extends Exception {
      * @return The fixed DFA.
      */
     public DFA FixDFA(DFA dfa) {
-        for(int i = 0; i < dfa.getTransictions().size(); i++) {
-            for(int j = i + 1; j < dfa.getTransictions().size(); j++) {
-                if(dfa.getTransictions().get(i).getStart().equals(dfa.getTransictions().get(j).getStart())
-                && dfa.getTransictions().get(i).getSymbol() == dfa.getTransictions().get(j).getSymbol()) {
+        for(int i = 0; i < dfa.getTransitions().size(); i++) {
+            for(int j = i + 1; j < dfa.getTransitions().size(); j++) {
+                if(dfa.getTransitions().get(i).getStart().equals(dfa.getTransitions().get(j).getStart())
+                && dfa.getTransitions().get(i).getSymbol() == dfa.getTransitions().get(j).getSymbol()) {
 
-                    System.out.println("Transictions from the same state with the same symbol are not allowed.");
+                    System.out.println("Transitions from the same state with the same symbol are not allowed.");
                     System.out.println("Please select one of the following options to delete:");
-                    System.out.println("Transiction 1: " + dfa.getTransictions().get(i));
-                    System.out.println("Transiction 2: " + dfa.getTransictions().get(j));
+                    System.out.println("Transition 1: " + dfa.getTransitions().get(i));
+                    System.out.println("Transition 2: " + dfa.getTransitions().get(j));
                     System.out.print("Choice: ");
                     int choice = Keyboard.readInt();
 
                     do {
-                        if(choice == 1) {
-                            dfa.getTransictions().remove(i);
-                        } else if(choice == 2) {
-                            dfa.getTransictions().remove(j);
-                        } else {
-                            System.out.println("Invalid choice. Please try again.");
+                        switch(choice) {
+                            case 1:
+                                dfa.getTransitions().remove(i);
+                                break;
+                            case 2:
+                                dfa.getTransitions().remove(j);
+                                break;
+                            default:
+                                System.out.println("Invalid choice. Please try again.");
                         }
                     } while(choice != 1 && choice != 2);
                     
