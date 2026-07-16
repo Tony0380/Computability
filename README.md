@@ -77,8 +77,13 @@ roles. Grammars and rewriting systems open in the structured JSON editor.
 Projects can be saved locally, reopened from the recent-project list, or
 exported as portable JSON. The execution panel runs the active definition and
 keeps access to minimisation, determinisation, model conversions, CYK and LL(1)
-tools. Four accessible themes are bundled, as is the Montserrat typeface, so
-the interface does not depend on fonts installed on the user's computer.
+tools. Every catalogue entry also has a theory page with its formal tuple,
+components, dynamics, acceptance condition, expressive power and study notes.
+The navigation and model catalogue are available in Italian, English, French,
+German, Spanish and Portuguese; the complete theory text is provided in
+Italian and English. Four accessible themes are bundled, as is the Montserrat
+typeface, so the interface does not depend on fonts installed on the user's
+computer.
 
 On Windows the executable uses the graphical subsystem in both development and
 release builds, preventing a terminal window from opening behind the app.
@@ -98,10 +103,20 @@ not code-signed until the project owner supplies a Windows code-signing
 certificate; Windows may consequently show a publisher warning for unsigned
 development releases.
 
+The app checks the latest GitHub Release and can download and install a newer
+version from its Updates dialog. Update packages have a mandatory Tauri
+signature, and the public verification key is embedded in the app. The release
+workflow produces the matching `.sig` files and `latest.json` manifest from the
+private key stored only in GitHub Actions secrets.
+
 To enable Authenticode signing in the release workflow, configure these GitHub
 Actions secrets: `WINDOWS_CERTIFICATE_PFX_BASE64` (the Base64-encoded PFX),
 `WINDOWS_CERTIFICATE_PASSWORD`, and `WINDOWS_TIMESTAMP_URL`. When present, the
 workflow signs and verifies both installers before publishing them.
+
+Automatic updates additionally require `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. They are already expected by the release
+workflow and must never be committed to the repository.
 
 ## Develop locally
 
