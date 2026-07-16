@@ -4,8 +4,8 @@
   "version": "0.2.8",
   "identifier": "io.github.tony0380.computability",
   "build": {
-    "beforeDevCommand": "npm.cmd run dev",
-    "beforeBuildCommand": "npm.cmd run build",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
