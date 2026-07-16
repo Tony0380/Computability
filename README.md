@@ -17,8 +17,8 @@ transition, symbol, or token.
 
 ## Model coverage
 
-The target catalogue follows the models exposed by JFLAP, extended with
-place/transition Petri nets. “Implemented” means the Rust core has a defined,
+The target catalogue covers the principal models used in computability and
+formal-language courses, extended with place/transition Petri nets. “Implemented” means the Rust core has a defined,
 serializable model and an execution algorithm reachable from the interface.
 
 | Family | Model | Core | UI |
@@ -36,9 +36,9 @@ serializable model and an execution algorithm reachable from the interface.
 | Formal systems | Deterministic, contextual and stochastic L-systems | Implemented | Implemented |
 | Petri nets | Place/transition nets | Implemented | Implemented |
 
-JFLAP’s conversion wizards, parser-table construction (LL/SLR) and pumping-
-lemma exercises are a separate teaching-tools track. They are not represented
-as finished functionality here.
+Additional conversion wizards, SLR parser-table construction and pumping-lemma
+exercises are a separate teaching-tools track. They are not represented as
+finished functionality here.
 
 Available transformations are NFA→DFA, DFA minimisation, regular expression→NFA,
 regular grammar→NFA and CFG→PDA. CFGs in Chomsky normal form can also be run
@@ -119,7 +119,7 @@ tag for every accepted master build without rewriting release history.
 
 Dependabot reviews Cargo, npm and GitHub Actions dependencies weekly. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and model-boundary rules.
-The detailed feature ledger is in [docs/jflap-compatibility.md](docs/jflap-compatibility.md).
+The detailed feature ledger is in [docs/feature-matrix.md](docs/feature-matrix.md).
 
 ## Licence
 

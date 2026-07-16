@@ -1,10 +1,10 @@
-# JFLAP compatibility matrix
+# Feature matrix
 
 This is a conformance ledger, not a feature wishlist. A row is marked
 “available” only when a Rust implementation is reachable through a Tauri
 command and has a corresponding UI entry or operation.
 
-| JFLAP area | Capability | Status | Notes |
+| Area | Capability | Status | Notes |
 | --- | --- | --- | --- |
 | Finite automata | DFA and epsilon-NFA simulation | Available | Deterministic validation and epsilon closure. |
 | Finite automata | NFA to DFA | Available | Subset construction. |
@@ -29,5 +29,4 @@ command and has a corresponding UI entry or operation.
 | Automata | FA/grammar/RE reverse conversions | Not yet available | Need proof-step representations, not only end results. |
 | Exercises | Pumping lemmas and batch modes | Not yet available | Teaching interaction, not a machine simulator. |
 
-The matrix follows the official [JFLAP tutorial](https://www.jflap.org/tutorial/frameindex.html)
-and is updated together with each executable feature.
+The matrix is updated together with each executable feature.

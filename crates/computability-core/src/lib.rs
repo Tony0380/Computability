@@ -397,9 +397,8 @@ impl TuringMachine {
         }
     }
 
-    /// Explore a nondeterministic one-tape machine breadth-first. This mirrors
-    /// JFLAP's configuration semantics while retaining `run` for a strict DFA-
-    /// like transition function. A bound is mandatory because a machine may
+    /// Explore a nondeterministic one-tape machine breadth-first while retaining
+    /// `run` for a strict DFA-like transition function. A bound is mandatory because a machine may
     /// have infinitely many reachable configurations.
     pub fn run_nondeterministic(
         &self,
@@ -588,7 +587,7 @@ impl Machine for PetriNet {
     }
 }
 
-/// A single JFLAP-style pushdown-automaton transition. `input` equal to `ε`
+/// A single pushdown-automaton transition. `input` equal to `ε`
 /// consumes no input; `pop` and `push` are ordered with the stack top first.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PushdownTransition {
