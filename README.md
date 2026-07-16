@@ -1,178 +1,155 @@
 # Computability
 
-Computability is a desktop workbench for constructing, inspecting and running
-formal models of computation. It is written as a Rust simulation core behind a
-TypeScript interface, with an explicit separation between the mathematical
-model and its presentation.
+Computability is an open-source desktop laboratory for defining, inspecting,
+and executing formal models of computation. It combines a Rust simulation core
+with a TypeScript and React interface delivered as a Tauri application.
 
-> Status: active rewrite. The original Java/Gradle terminal application has
-> been removed; this repository now builds around a Rust/Tauri architecture.
+The project is intended for coursework, self-study, and experimentation with
+formal languages and computability. Every model is validated before execution;
+the interface does not silently change a definition.
 
-## Why this project exists
+## Highlights
 
-Formal-language tooling is most useful when its result can be checked. Each
-simulator therefore validates its own definition and returns a trace or a
-precise domain error. The user interface never silently adds a state,
-transition, symbol, or token.
+- A catalogue of supported computational models with a theory page for each model.
+- Visual workspaces for state-based machines and Petri nets.
+- Guided rule editors for grammars, L-systems, and regular expressions.
+- Multiple open workspaces with local save, reopen, and portable JSON export/import.
+- Execution traces, validation errors, and bounded simulation controls.
+- Transformations including NFA to DFA, DFA minimisation, regular expression to
+  NFA, regular grammar to NFA, CFG to PDA, CYK parsing, and LL(1) parsing.
+- English, Italian, French, German, Spanish, and Portuguese localization.
+- Four built-in themes and an updater backed by signed Tauri release metadata.
 
-## Model coverage
+## Model catalogue
 
-The target catalogue covers the principal models used in computability and
-formal-language courses, extended with place/transition Petri nets. "Implemented" means the Rust core has a defined,
-serializable model and an execution algorithm reachable from the interface.
+| Area               | Models                                                                |
+| ------------------ | --------------------------------------------------------------------- |
+| Finite automata    | DFA; epsilon-NFA                                                      |
+| Transducers        | Mealy; Moore                                                          |
+| Pushdown automata  | Nondeterministic PDA                                                  |
+| Turing machines    | Nondeterministic single-tape TM; deterministic multi-tape TM          |
+| Grammars           | Regular; context-free; unrestricted                                   |
+| Regular languages  | Regular-expression recognition and Thompson conversion to epsilon-NFA |
+| Formal systems     | Deterministic, contextual, and stochastic L-systems                   |
+| Concurrent systems | Place/transition Petri nets                                           |
 
-| Family                   | Model                                              | Core        | UI          |
-| ------------------------ | -------------------------------------------------- | ----------- | ----------- |
-| Finite automata          | DFA                                                | Implemented | Implemented |
-| Finite automata          | NFA with epsilon transitions                       | Implemented | Implemented |
-| Finite-state transducers | Mealy and Moore machines                           | Implemented | Implemented |
-| Pushdown automata        | Nondeterministic PDA                               | Implemented | Implemented |
-| Turing machines          | Nondeterministic single-tape TM                    | Implemented | Implemented |
-| Turing machines          | Deterministic multi-tape TM                        | Implemented | Implemented |
-| Grammars                 | Regular grammar                                    | Implemented | Implemented |
-| Grammars                 | Context-free grammar, bounded leftmost recognition | Implemented | Implemented |
-| Grammars                 | Unrestricted grammar, bounded rewriting            | Implemented | Implemented |
-| Regular languages        | Regular expression to epsilon-NFA matching         | Implemented | Implemented |
-| Formal systems           | Deterministic, contextual and stochastic L-systems | Implemented | Implemented |
-| Petri nets               | Place/transition nets                              | Implemented | Implemented |
+The [feature matrix](docs/feature-matrix.md) is the authoritative capability
+ledger. It distinguishes implemented operations from planned teaching tools.
+Recognition algorithms with potentially unbounded search use explicit bounds;
+the bound is part of the execution definition and is reported in the result.
 
-Additional conversion wizards, SLR parser-table construction and pumping-lemma
-exercises are a separate teaching-tools track. They are not represented as
-finished functionality here.
+## Screenshots
 
-Available transformations are NFA→DFA, DFA minimisation, regular expression→NFA,
-regular grammar→NFA and CFG→PDA. CFGs in Chomsky normal form can also be run
-through the CYK parser, while predictive CFGs expose an LL(1) table and parser
-trace in the interface.
+The catalogue is the primary entry point for creating a project. It presents
+the available model families and links each model to its formal theory.
+
+![Computability model catalogue](docs/screenshots/catalogue.png)
+
+The workspace supports visual construction of state-based machines, labelled
+transitions, semantic state roles, and execution inspection.
+
+![DFA visual workspace](docs/screenshots/automaton-canvas.png)
+
+Structured models use editors that match their notation. Grammar symbols are
+entered as individual removable fields and productions update the model as
+they are edited.
+
+![Context-free grammar rule editor](docs/screenshots/grammar-rule-editor.png)
 
 ## Architecture
 
 ```text
-TypeScript / React interface
-        │  typed Tauri commands
-        ▼
-Tauri desktop shell
-        │
-        ▼
+React and TypeScript UI
+        |
+        v
+Tauri desktop shell and typed commands
+        |
+        v
 computability-core (Rust)
-  ├─ finite automata
-  ├─ pushdown automata
-  ├─ Turing machines
-  ├─ grammars and L-systems
-  └─ Petri nets
+  - finite automata and transducers
+  - pushdown and Turing machines
+  - grammars, regular expressions, and L-systems
+  - Petri nets
 ```
 
-The core has no UI or file-system dependency. Models are objects with explicit
-state and invariants; executable models implement the `Machine` trait. This
-makes the same algorithms testable independently of desktop rendering.
+The Rust crate owns model validation, simulation, conversions, and serializable
+domain types. The frontend owns presentation, editing, localization, and
+workspace state. Tauri is the narrow boundary between them, so the algorithms
+remain testable without rendering a desktop window. See
+[docs/architecture.md](docs/architecture.md) for invariants and command
+boundaries.
 
-## Desktop experience
+## Download and install (Windows)
 
-The interface opens on a searchable catalogue of every supported model. After
-choosing one, a project can be created in the visual workspace or imported from
-JSON. State-based machines and Petri nets have an interactive canvas for
-dragging nodes, connecting transitions, editing labels and assigning semantic
-roles. Every model also has a guided editor suited to its structure: productions
-for grammars, transition rows for machines, weighted rules for stochastic
-systems, arcs for Petri nets, and focused fields for regular expressions. Canvas
-workspaces scroll normally and zoom with `Ctrl` + mouse wheel, `Ctrl` + `+`, or
-`Ctrl` + `-`. Symbol sequences use one removable field per symbol instead of a
-space-delimited text box.
+End users only need the published installer. Rust, Node.js, and build tools are
+not required.
 
-Multiple projects can stay open at the same time in workspace tabs. Returning
-to the catalogue does not close them: the home screen shows every open workspace
-and restores it with its current model, editor and unsaved changes.
+1. Open the [latest GitHub release](https://github.com/Tony0380/Computability/releases).
+2. Download the x64 `.exe` installer (or the MSI package for managed deployment).
+3. Run the installer and launch **Computability** from the Start menu.
 
-### See it in action
+The installer is per-user. WebView2 is installed or reused by the Tauri
+runtime, so a first install may require an internet connection. Release assets
+include detached updater signatures and `latest.json`; the updater verifies
+these signatures before installing an update.
 
-![Complete Computability model catalogue](docs/screenshots/catalogue.png)
+## Development
 
-| Visual automaton canvas                                                              | Guided grammar rule editor                                                          |
-| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| ![DFA workspace with directional transitions](docs/screenshots/automaton-canvas.png) | ![Context-free grammar production editor](docs/screenshots/grammar-rule-editor.png) |
+### Prerequisites
 
-Projects can be saved locally, reopened from the recent-project list, or
-exported as portable JSON. The execution panel runs the active definition and
-keeps access to minimisation, determinisation, model conversions, CYK and LL(1)
-tools. Every catalogue entry also has a theory page with its formal tuple,
-components, dynamics, acceptance condition, expressive power and study notes.
-The complete interface-including the catalogue, visual workspace, guided rule
-editors, validation messages, project names, updater and formal theory
-pages-is available in Italian, English, French, German, Spanish and Portuguese.
-Automated coverage tests prevent untranslated static and dynamic labels from
-silently falling back to another language. Four accessible themes are bundled,
-as is the Montserrat typeface, so the interface does not depend on fonts
-installed on the user's computer.
+- Node.js 24 or newer
+- Stable Rust toolchain
+- The [Tauri v2 system prerequisites](https://v2.tauri.app/start/prerequisites/)
 
-On Windows the executable uses the graphical subsystem in both development and
-release builds, preventing a terminal window from opening behind the app.
-
-## Install on Windows
-
-Users do not need Rust, Node.js, Visual Studio, or any development dependency.
-Download the `.exe` installer from the matching GitHub Release, run it, and
-launch **Computability** from the Start menu. The installer is per-user and
-does not require administrator privileges. It automatically installs the
-Microsoft WebView2 runtime when it is not already present, so the first
-installation needs an internet connection.
-
-Each verified push to `master` receives an immutable version tag and a release
-workflow builds both an NSIS `.exe` installer and an MSI package. Releases are
-not code-signed until the project owner supplies a Windows code-signing
-certificate; Windows may consequently show a publisher warning for unsigned
-development releases.
-
-The app checks the latest GitHub Release and can download and install a newer
-version from its Updates dialog. Update packages have a mandatory Tauri
-signature, and the public verification key is embedded in the app. The release
-workflow produces the matching `.sig` files and `latest.json` manifest from the
-private key stored only in GitHub Actions secrets.
-
-To enable Authenticode signing in the release workflow, configure these GitHub
-Actions secrets: `WINDOWS_CERTIFICATE_PFX_BASE64` (the Base64-encoded PFX),
-`WINDOWS_CERTIFICATE_PASSWORD`, and `WINDOWS_TIMESTAMP_URL`. When present, the
-workflow signs and verifies both installers before publishing them.
-
-Automatic updates additionally require `TAURI_SIGNING_PRIVATE_KEY` and
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. They are already expected by the release
-workflow and must never be committed to the repository.
-
-## Develop locally
-
-Prerequisites: stable Rust, Node.js 24+ and the [Tauri system
-prerequisites](https://v2.tauri.app/start/prerequisites/).
+### Run the web interface
 
 ```powershell
 npm.cmd ci
 npm.cmd run dev
 ```
 
-For a distributable application:
+### Build the desktop application
 
 ```powershell
 npm.cmd run build:app
 ```
 
-Before changing a release version, keep the values in `Cargo.toml`,
-`package.json`, and `src-tauri/tauri.conf.json` identical, then run:
+### Quality checks
 
 ```powershell
+npm.cmd test
+npm.cmd run lint
+npm.cmd run format:check
+npm.cmd run build
 npm.cmd run release:check
 ```
 
-## Quality gates
+The `Quality` GitHub Actions workflow runs the same gates on pull requests and
+on pushes to `master`. Successful `master` builds receive an immutable tag in
+the form `v<version>-master.<run-number>`; the Windows release workflow then
+publishes the installer, signatures, and updater manifest.
 
-The `Quality` workflow runs formatting, Clippy, Rust unit tests, TypeScript
-linting and production build on every pull request and every push to `master`.
-After a successful push to `master`, it creates an immutable annotated tag in the
-form `v<version>-master.<GitHub run number>`. This meets the requirement of a
-tag for every accepted master build without rewriting release history.
+## Project files
 
-Dependabot reviews Cargo, npm and GitHub Actions dependencies weekly. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for local checks and model-boundary rules.
-The detailed feature ledger is in [docs/feature-matrix.md](docs/feature-matrix.md).
+- `src/`: React UI, editors, catalog, theory content, and localization.
+- `crates/computability-core/`: Rust models and simulation algorithms.
+- `src-tauri/`: Tauri commands, permissions, packaging, and application assets.
+- `docs/`: architecture notes, feature matrix, and README screenshots.
 
-## Licence
+## Contributing
 
-Distributed under the [MIT License](LICENSE). It is permissive enough for
-educational reuse while retaining the copyright and disclaimer notice.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Changes
+should keep the Rust model boundary explicit, add tests for new behavior, and
+update the feature matrix or theory content when capabilities change.
+
+## License
+
+Computability is distributed under the [MIT License](LICENSE).
+
+## Links
+
+- [Repository](https://github.com/Tony0380/Computability)
+- [Releases](https://github.com/Tony0380/Computability/releases)
+- [Architecture](docs/architecture.md)
+- [Feature matrix](docs/feature-matrix.md)
+- [Contribution guide](CONTRIBUTING.md)
