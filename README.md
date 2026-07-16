@@ -81,6 +81,11 @@ not code-signed until the project owner supplies a Windows code-signing
 certificate; Windows may consequently show a publisher warning for unsigned
 development releases.
 
+To enable Authenticode signing in the release workflow, configure these GitHub
+Actions secrets: `WINDOWS_CERTIFICATE_PFX_BASE64` (the Base64-encoded PFX),
+`WINDOWS_CERTIFICATE_PASSWORD`, and `WINDOWS_TIMESTAMP_URL`. When present, the
+workflow signs and verifies both installers before publishing them.
+
 ## Develop locally
 
 Prerequisites: stable Rust, Node.js 24+ and the [Tauri system
