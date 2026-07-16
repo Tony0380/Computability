@@ -66,7 +66,22 @@ The core has no UI or file-system dependency. Models are objects with explicit
 state and invariants; executable models implement the `Machine` trait. This
 makes the same algorithms testable independently of desktop rendering.
 
-## Run locally
+## Install on Windows
+
+Users do not need Rust, Node.js, Visual Studio, or any development dependency.
+Download the `.exe` installer from the matching GitHub Release, run it, and
+launch **Computability** from the Start menu. The installer is per-user and
+does not require administrator privileges. It automatically installs the
+Microsoft WebView2 runtime when it is not already present, so the first
+installation needs an internet connection.
+
+Each verified push to `master` receives an immutable version tag and a release
+workflow builds both an NSIS `.exe` installer and an MSI package. Releases are
+not code-signed until the project owner supplies a Windows code-signing
+certificate; Windows may consequently show a publisher warning for unsigned
+development releases.
+
+## Develop locally
 
 Prerequisites: stable Rust, Node.js 24+ and the [Tauri system
 prerequisites](https://v2.tauri.app/start/prerequisites/).
@@ -80,6 +95,13 @@ For a distributable application:
 
 ```powershell
 npm.cmd run build:app
+```
+
+Before changing a release version, keep the values in `Cargo.toml`,
+`package.json`, and `src-tauri/tauri.conf.json` identical, then run:
+
+```powershell
+npm.cmd run release:check
 ```
 
 ## Quality gates
