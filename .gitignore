@@ -1,0 +1,12 @@
+# Rust and Tauri build output
+/target/
+/src-tauri/target/
+
+# JavaScript dependencies and generated interface
+/node_modules/
+/dist/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/

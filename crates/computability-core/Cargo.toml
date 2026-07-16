@@ -1,0 +1,10 @@
+[package]
+name = "computability-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Pure, validated simulators for classical models of computation."
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
