@@ -15,6 +15,26 @@ export const languages: { id: Language; label: string; short: string }[] = [
 
 type Row = [string, string, string, string, string, string];
 const rows: Row[] = [
+  ["Catalogo", "Catalogue", "Catalogue", "Katalog", "Catálogo", "Catálogo"],
+  [
+    "Scelta modello",
+    "Model setup",
+    "Choix du modèle",
+    "Modellauswahl",
+    "Selección de modelo",
+    "Escolha do modelo",
+  ],
+  ["Riduci a icona", "Minimize", "Réduire", "Minimieren", "Minimizar", "Minimizar"],
+  ["Ingrandisci", "Maximize", "Agrandir", "Maximieren", "Maximizar", "Maximizar"],
+  ["Ripristina", "Restore", "Restaurer", "Wiederherstellen", "Restaurar", "Restaurar"],
+  [
+    "Chiudi finestra",
+    "Close window",
+    "Fermer la fenêtre",
+    "Fenster schließen",
+    "Cerrar ventana",
+    "Fechar janela",
+  ],
   ["Importa JSON", "Import JSON", "Importer JSON", "JSON importieren", "Importar JSON", "Importar JSON"],
   ["Scegli tema", "Choose theme", "Choisir le thème", "Design wählen", "Elegir tema", "Escolher tema"],
   [

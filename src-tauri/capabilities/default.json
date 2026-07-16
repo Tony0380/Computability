@@ -3,5 +3,15 @@
   "identifier": "default",
   "description": "Default capability set for the desktop workbench.",
   "windows": ["main"],
-  "permissions": ["core:default", "opener:default", "process:allow-restart", "updater:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-is-maximized",
+    "core:window:allow-minimize",
+    "core:window:allow-start-dragging",
+    "core:window:allow-toggle-maximize",
+    "opener:default",
+    "process:allow-restart",
+    "updater:default"
+  ]
 }
