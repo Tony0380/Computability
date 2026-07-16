@@ -1,0 +1,58 @@
+name: Quality
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install Tauri system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Check Rust formatting
+        run: cargo fmt --check
+      - name: Lint Rust
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test simulation core
+        run: cargo test --workspace
+      - name: Install interface dependencies
+        run: npm ci
+      - name: Lint interface
+        run: npm run lint
+      - name: Build interface
+        run: npm run build
+
+  tag-main:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create an immutable main-build tag
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          VERSION=$(awk -F '"' '/^version = / { print $2; exit }' Cargo.toml)
+          TAG="v${VERSION}-main.${RUN_NUMBER}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Main build $TAG" "$GITHUB_SHA"
+          git push origin "$TAG"
