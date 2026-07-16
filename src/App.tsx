@@ -1,4 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import {
   type ChangeEvent,
   type DragEvent,
@@ -10,6 +13,9 @@ import {
 } from "react";
 import { catalogue, metaFor, type ModelMeta } from "./catalog";
 import { examples, type Definition, type MachineKind } from "./domain";
+import { detectedLanguage, I18nProvider, languages, useI18n, type Language } from "./i18n";
+import { theories } from "./theory";
+import { theoryInEnglish } from "./theoryEnglish";
 import {
   definitionFromGraph,
   graphFromDefinition,
@@ -23,7 +29,7 @@ import {
   type WorkspaceGraph,
 } from "./workspace";
 
-type Screen = "home" | "method" | "studio";
+type Screen = "home" | "method" | "studio" | "theory";
 type ThemeName = "paper" | "midnight" | "clay" | "contrast";
 type Tool = "select" | "state" | "transition";
 type Selection = { type: "node" | "edge"; id: string } | null;
@@ -209,6 +215,7 @@ const requestKinds: Record<MachineKind, string> = {
 };
 
 export default function App() {
+  const [language, setLanguage] = useState<Language>(detectedLanguage);
   const [screen, setScreen] = useState<Screen>("home");
   const [kind, setKind] = useState<MachineKind>("dfa");
   const [definition, setDefinition] = useState<Definition>(examples.dfa);
@@ -219,6 +226,12 @@ export default function App() {
     () => (localStorage.getItem("computability.theme") as ThemeName) || "paper",
   );
   const [themeOpen, setThemeOpen] = useState(false);
+  const [updateOpen, setUpdateOpen] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<
+    "idle" | "checking" | "current" | "available" | "downloading" | "error"
+  >(() => (isTauri() ? "checking" : "idle"));
+  const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null);
+  const [updateProgress, setUpdateProgress] = useState(0);
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState("Tutti");
   const [view, setView] = useState<"canvas" | "json">("canvas");
@@ -241,6 +254,19 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("computability.theme", theme);
   }, [theme]);
+  useEffect(() => {
+    localStorage.setItem("computability.language", language);
+    document.documentElement.lang = language;
+  }, [language]);
+  useEffect(() => {
+    if (!isTauri()) return;
+    void check({ timeout: 20_000 })
+      .then((update) => {
+        setAvailableUpdate(update);
+        setUpdateStatus(update ? "available" : "current");
+      })
+      .catch(() => setUpdateStatus("error"));
+  }, []);
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
   }, [screen]);
@@ -286,6 +312,38 @@ export default function App() {
   function flash(message: string) {
     setNotice(message);
     window.setTimeout(() => setNotice(undefined), 2600);
+  }
+  async function checkForUpdates() {
+    setUpdateOpen(true);
+    if (!isTauri()) {
+      setUpdateStatus("current");
+      return;
+    }
+    setUpdateStatus("checking");
+    try {
+      const update = await check({ timeout: 20_000 });
+      setAvailableUpdate(update);
+      setUpdateStatus(update ? "available" : "current");
+    } catch {
+      setUpdateStatus("error");
+    }
+  }
+  async function installUpdate() {
+    if (!availableUpdate) return;
+    setUpdateStatus("downloading");
+    setUpdateProgress(0);
+    let downloaded = 0;
+    let total = 0;
+    try {
+      await availableUpdate.downloadAndInstall((event) => {
+        if (event.event === "Started") total = event.data.contentLength ?? 0;
+        if (event.event === "Progress") downloaded += event.data.chunkLength;
+        if (total) setUpdateProgress(Math.min(100, Math.round((downloaded / total) * 100)));
+      });
+      await relaunch();
+    } catch {
+      setUpdateStatus("error");
+    }
   }
   function chooseModel(next: MachineKind) {
     setKind(next);
@@ -627,98 +685,120 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
-      <input
-        ref={fileInput}
-        className="visually-hidden"
-        type="file"
-        accept="application/json,.json"
-        onChange={importFile}
-      />
-      {screen === "home" && (
-        <Home
-          projects={projects}
-          filtered={filtered}
-          families={families}
-          family={family}
-          query={query}
-          onFamily={setFamily}
-          onQuery={setQuery}
-          onChoose={chooseModel}
-          onOpen={openProject}
-          onImport={() => fileInput.current?.click()}
-          onTheme={() => setThemeOpen(true)}
+    <I18nProvider language={language} setLanguage={setLanguage}>
+      <div className="app-shell">
+        <input
+          ref={fileInput}
+          className="visually-hidden"
+          type="file"
+          accept="application/json,.json"
+          onChange={importFile}
         />
-      )}
-      {screen === "method" && (
-        <Method
-          model={chosen}
-          onBack={() => setScreen("home")}
-          onCreate={startFresh}
-          onImport={() => fileInput.current?.click()}
-          onTheme={() => setThemeOpen(true)}
-        />
-      )}
-      {screen === "studio" && (
-        <Studio
-          model={chosen}
-          project={project}
-          setProject={setProject}
-          graph={graph}
-          view={view}
-          setView={setView}
-          tool={tool}
-          setTool={(next) => {
-            setTool(next);
-            setTransitionFrom(undefined);
-          }}
-          transitionFrom={transitionFrom}
-          selection={selection}
-          setSelection={setSelection}
-          selectedNode={selectedNode}
-          selectedEdge={selectedEdge}
-          source={source}
-          setSource={setSource}
-          input={input}
-          setInput={setInput}
-          result={result}
-          error={error}
-          zoom={zoom}
-          setZoom={setZoom}
-          sidePanel={sidePanel}
-          setSidePanel={setSidePanel}
-          canvasRef={canvasRef}
-          onCanvasClick={handleCanvasClick}
-          onDrop={handleDrop}
-          onPointerDown={pointerDown}
-          onPointerMove={pointerMove}
-          onPointerUp={() => {
-            dragRef.current = null;
-          }}
-          onUpdateNode={updateNode}
-          onRenameNode={renameNode}
-          onUpdateEdge={updateEdge}
-          onRemove={removeSelection}
-          onApplyJson={applyJson}
-          onRun={run}
-          onAction={performModelAction}
-          onSave={saveProject}
-          onExport={exportProject}
-          onImport={() => fileInput.current?.click()}
-          onHome={() => setScreen("home")}
-          onTheme={() => setThemeOpen(true)}
-        />
-      )}
-      {themeOpen && <ThemeDialog theme={theme} onTheme={setTheme} onClose={() => setThemeOpen(false)} />}
-      {notice && (
-        <div className="toast">
-          <span>
-            <Icon name="check" size={16} />
-          </span>
-          {notice}
-        </div>
-      )}
-    </div>
+        {screen === "home" && (
+          <Home
+            projects={projects}
+            filtered={filtered}
+            families={families}
+            family={family}
+            query={query}
+            onFamily={setFamily}
+            onQuery={setQuery}
+            onChoose={chooseModel}
+            onOpen={openProject}
+            onImport={() => fileInput.current?.click()}
+            onTheme={() => setThemeOpen(true)}
+            onTheory={(next) => {
+              setKind(next);
+              setScreen("theory");
+            }}
+            onUpdates={() => void checkForUpdates()}
+          />
+        )}
+        {screen === "method" && (
+          <Method
+            model={chosen}
+            onBack={() => setScreen("home")}
+            onCreate={startFresh}
+            onImport={() => fileInput.current?.click()}
+            onTheme={() => setThemeOpen(true)}
+            onTheory={() => setScreen("theory")}
+          />
+        )}
+        {screen === "studio" && (
+          <Studio
+            model={chosen}
+            project={project}
+            setProject={setProject}
+            graph={graph}
+            view={view}
+            setView={setView}
+            tool={tool}
+            setTool={(next) => {
+              setTool(next);
+              setTransitionFrom(undefined);
+            }}
+            transitionFrom={transitionFrom}
+            selection={selection}
+            setSelection={setSelection}
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            source={source}
+            setSource={setSource}
+            input={input}
+            setInput={setInput}
+            result={result}
+            error={error}
+            zoom={zoom}
+            setZoom={setZoom}
+            sidePanel={sidePanel}
+            setSidePanel={setSidePanel}
+            canvasRef={canvasRef}
+            onCanvasClick={handleCanvasClick}
+            onDrop={handleDrop}
+            onPointerDown={pointerDown}
+            onPointerMove={pointerMove}
+            onPointerUp={() => {
+              dragRef.current = null;
+            }}
+            onUpdateNode={updateNode}
+            onRenameNode={renameNode}
+            onUpdateEdge={updateEdge}
+            onRemove={removeSelection}
+            onApplyJson={applyJson}
+            onRun={run}
+            onAction={performModelAction}
+            onSave={saveProject}
+            onExport={exportProject}
+            onImport={() => fileInput.current?.click()}
+            onHome={() => setScreen("home")}
+            onTheme={() => setThemeOpen(true)}
+            onTheory={() => setScreen("theory")}
+          />
+        )}
+        {screen === "theory" && (
+          <TheoryPage model={chosen} onBack={() => setScreen("home")} onOpen={() => startFresh()} />
+        )}
+        {themeOpen && <ThemeDialog theme={theme} onTheme={setTheme} onClose={() => setThemeOpen(false)} />}
+        {updateOpen && (
+          <UpdateDialog
+            status={updateStatus}
+            update={availableUpdate}
+            progress={updateProgress}
+            onCheck={() => void checkForUpdates()}
+            onInstall={() => void installUpdate()}
+            onClose={() => setUpdateOpen(false)}
+          />
+        )}
+        {notice && (
+          <div className="toast">
+            <span>
+              <Icon name="check" size={16} />
+            </span>
+            {notice}
+          </div>
+        )}
+      </div>
+    </I18nProvider>
   );
 }
 
@@ -734,6 +814,8 @@ type HomeProps = {
   onOpen: (project: SavedProject) => void;
   onImport: () => void;
   onTheme: () => void;
+  onTheory: (kind: MachineKind) => void;
+  onUpdates: () => void;
 };
 function Home({
   projects,
@@ -747,30 +829,38 @@ function Home({
   onOpen,
   onImport,
   onTheme,
+  onTheory,
+  onUpdates,
 }: HomeProps) {
+  const { language, t } = useI18n();
   return (
     <main className="home-screen">
       <nav className="topbar">
         <Brand />
         <div className="top-actions">
+          <LanguageMenu />
+          <button className="ghost-button" onClick={onUpdates}>
+            <Icon name="download" />
+            {t("Aggiornamenti")}
+          </button>
           <button className="ghost-button" onClick={onImport}>
             <Icon name="upload" />
-            Importa JSON
+            {t("Importa JSON")}
           </button>
-          <button className="icon-button" aria-label="Scegli tema" onClick={onTheme}>
+          <button className="icon-button" aria-label={t("Scegli tema")} onClick={onTheme}>
             <Icon name="palette" />
           </button>
         </div>
       </nav>
       <section className="home-hero">
         <div className="hero-copy">
-          <p className="kicker">Laboratorio di computabilità</p>
+          <p className="kicker">{t("Laboratorio di computabilità")}</p>
           <h1>
-            Costruisci un’idea.
+            {t("Costruisci un’idea.")}
             <br />
-            <em>Osservala muoversi.</em>
+            <em>{t("Osservala muoversi.")}</em>
           </h1>
-          <p>Scegli un modello, disegnane il comportamento e segui ogni passo della sua esecuzione.</p>
+          <p>{t("Scegli un modello, disegnane il comportamento e segui ogni passo della sua esecuzione.")}</p>
         </div>
         <div className="hero-diagram" aria-hidden="true">
           <span className="hero-node start">
@@ -791,8 +881,8 @@ function Home({
         <section className="recent-section section-wrap">
           <div className="section-title">
             <div>
-              <p className="kicker">Continua da dove eri rimasto</p>
-              <h2>Progetti recenti</h2>
+              <p className="kicker">{t("Continua da dove eri rimasto")}</p>
+              <h2>{t("Progetti recenti")}</h2>
             </div>
           </div>
           <div className="recent-row">
@@ -804,7 +894,7 @@ function Home({
                 <span>
                   <strong>{item.name}</strong>
                   <small>
-                    {new Intl.DateTimeFormat("it", {
+                    {new Intl.DateTimeFormat(language, {
                       day: "numeric",
                       month: "short",
                       hour: "2-digit",
@@ -821,15 +911,15 @@ function Home({
       <section className="catalogue-section section-wrap">
         <div className="section-title catalogue-head">
           <div>
-            <p className="kicker">Nuovo progetto</p>
-            <h2>Scegli un modello</h2>
+            <p className="kicker">{t("Nuovo progetto")}</p>
+            <h2>{t("Scegli un modello")}</h2>
           </div>
           <label className="search-box">
             <Icon name="search" />
             <input
               value={query}
               onChange={(event) => onQuery(event.target.value)}
-              placeholder="Cerca un modello…"
+              placeholder={t("Cerca un modello…")}
             />
             <span>⌘ K</span>
           </label>
@@ -843,43 +933,51 @@ function Home({
               key={item}
               onClick={() => onFamily(item)}
             >
-              {item}
+              {t(item)}
             </button>
           ))}
         </div>
         <div className="model-grid">
           {filtered.map((model) => (
-            <button
-              className={`model-card accent-${model.accent}`}
-              key={model.kind}
-              onClick={() => onChoose(model.kind)}
-            >
-              <div className="card-top">
-                <span className="model-code">{model.code}</span>
-                <span className="card-arrow">
-                  <Icon name="arrow" />
-                </span>
-              </div>
-              <ModelGlyph model={model} />
-              <div className="model-copy">
-                <h3>{model.shortName}</h3>
-                <p>{model.description}</p>
-              </div>
-              <span className="model-family">{model.family}</span>
-            </button>
+            <div className={`model-card-wrap accent-${model.accent}`} key={model.kind}>
+              <button className="model-card" onClick={() => onChoose(model.kind)}>
+                <div className="card-top">
+                  <span className="model-code">{model.code}</span>
+                  <span className="card-arrow">
+                    <Icon name="arrow" />
+                  </span>
+                </div>
+                <ModelGlyph model={model} />
+                <div className="model-copy">
+                  <h3>{t(model.shortName)}</h3>
+                  <p>{t(model.description)}</p>
+                </div>
+                <span className="model-family">{t(model.family)}</span>
+              </button>
+              <button className="theory-card-action" onClick={() => onTheory(model.kind)}>
+                <Icon name="code" size={14} />
+                {t("Teoria")}
+              </button>
+            </div>
           ))}
         </div>
         {!filtered.length && (
           <div className="empty-state">
             <Icon name="search" size={28} />
-            <h3>Nessun modello trovato</h3>
-            <p>Prova un nome, una sigla o una famiglia diversa.</p>
+            <h3>{t("Nessun modello trovato")}</h3>
+            <p>{t("Prova un nome, una sigla o una famiglia diversa.")}</p>
           </div>
         )}
       </section>
       <footer className="home-footer">
         <Brand />
-        <span>Motore di simulazione Rust · Interfaccia desktop TypeScript</span>
+        <button
+          className="repo-link"
+          onClick={() => void openUrl("https://github.com/Tony0380/Computability")}
+        >
+          <Icon name="code" size={16} />
+          {t("Repository GitHub")}
+        </button>
       </footer>
     </main>
   );
@@ -901,40 +999,66 @@ function Brand() {
   );
 }
 
+function LanguageMenu() {
+  const { language, setLanguage, t } = useI18n();
+  return (
+    <label className="language-menu" title={t("Lingua")}>
+      <span className="visually-hidden">{t("Lingua")}</span>
+      <select value={language} onChange={(event) => setLanguage(event.target.value as Language)}>
+        {languages.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.short} · {item.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function Method({
   model,
   onBack,
   onCreate,
   onImport,
   onTheme,
+  onTheory,
 }: {
   model: ModelMeta;
   onBack: () => void;
   onCreate: () => void;
   onImport: () => void;
   onTheme: () => void;
+  onTheory: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <main className="method-screen">
       <nav className="topbar">
         <Brand />
-        <button className="icon-button" aria-label="Scegli tema" onClick={onTheme}>
-          <Icon name="palette" />
-        </button>
+        <div className="top-actions">
+          <LanguageMenu />
+          <button className="ghost-button" onClick={onTheory}>
+            <Icon name="code" />
+            {t("Teoria")}
+          </button>
+          <button className="icon-button" aria-label={t("Scegli tema")} onClick={onTheme}>
+            <Icon name="palette" />
+          </button>
+        </div>
       </nav>
       <button className="back-button" onClick={onBack}>
         <Icon name="back" />
-        Tutti i modelli
+        {t("Tutti i modelli")}
       </button>
       <section className="method-content">
         <div className={`method-badge accent-${model.accent}`}>
           <ModelGlyph model={model} />
           <span>{model.code}</span>
         </div>
-        <p className="kicker">Nuovo progetto</p>
-        <h1>{model.name}</h1>
+        <p className="kicker">{t("Nuovo progetto")}</p>
+        <h1>{t(model.name)}</h1>
         <p className="method-intro">
-          Come vuoi iniziare? Potrai passare dalla vista visuale al JSON in qualsiasi momento.
+          {t("Come vuoi iniziare? Potrai passare dalla vista visuale al JSON in qualsiasi momento.")}
         </p>
         <div className="method-options">
           <button className="method-card primary" onClick={onCreate}>
@@ -942,12 +1066,12 @@ function Method({
               <Icon name={model.visual ? "canvas" : "edit"} size={29} />
             </span>
             <span>
-              <small>{model.visual ? "Consigliato" : "Editor guidato"}</small>
-              <strong>{model.visual ? "Disegna nella lavagna" : "Crea nell’editor"}</strong>
+              <small>{t(model.visual ? "Consigliato" : "Editor guidato")}</small>
+              <strong>{t(model.visual ? "Disegna nella lavagna" : "Crea nell’editor")}</strong>
               <p>
                 {model.visual
-                  ? "Trascina stati, collega transizioni e modifica ogni proprietà senza scrivere codice."
-                  : "Parti da un esempio leggibile e modifica direttamente la definizione del modello."}
+                  ? t("Trascina stati, collega transizioni e modifica ogni proprietà senza scrivere codice.")
+                  : t("Parti da un esempio leggibile e modifica direttamente la definizione del modello.")}
               </p>
             </span>
             <Icon name="arrow" />
@@ -957,14 +1081,16 @@ function Method({
               <Icon name="upload" size={29} />
             </span>
             <span>
-              <small>Da un file esistente</small>
-              <strong>Importa da JSON</strong>
-              <p>Apri una definizione o un intero progetto salvato in precedenza.</p>
+              <small>{t("Da un file esistente")}</small>
+              <strong>{t("Importa JSON")}</strong>
+              <p>{t("Apri una definizione o un intero progetto salvato in precedenza.")}</p>
             </span>
             <Icon name="arrow" />
           </button>
         </div>
-        <p className="method-note">I progetti restano sul tuo dispositivo finché non scegli di esportarli.</p>
+        <p className="method-note">
+          {t("I progetti restano sul tuo dispositivo finché non scegli di esportarli.")}
+        </p>
       </section>
     </main>
   );
@@ -1012,6 +1138,7 @@ type StudioProps = {
   onImport: () => void;
   onHome: () => void;
   onTheme: () => void;
+  onTheory: () => void;
 };
 function Studio(props: StudioProps) {
   const {
@@ -1056,7 +1183,9 @@ function Studio(props: StudioProps) {
     onImport,
     onHome,
     onTheme,
+    onTheory,
   } = props;
+  const { t } = useI18n();
   return (
     <main className="studio-screen">
       <header className="studio-header">
@@ -1073,31 +1202,36 @@ function Studio(props: StudioProps) {
         />
         <span className="saved-indicator">
           <i />
-          Sul dispositivo
+          {t("Sul dispositivo")}
         </span>
         <div className="studio-actions">
-          <button className="icon-button" aria-label="Scegli tema" onClick={onTheme}>
+          <LanguageMenu />
+          <button className="ghost-button" onClick={onTheory}>
+            <Icon name="code" />
+            {t("Teoria")}
+          </button>
+          <button className="icon-button" aria-label={t("Scegli tema")} onClick={onTheme}>
             <Icon name="palette" />
           </button>
           <button className="ghost-button" onClick={onImport}>
             <Icon name="folder" />
-            Apri
+            {t("Apri")}
           </button>
           <button className="ghost-button" onClick={onExport}>
             <Icon name="download" />
-            Esporta
+            {t("Esporta")}
           </button>
           <button className="solid-button" onClick={onSave}>
             <Icon name="save" />
-            Salva
+            {t("Salva")}
           </button>
         </div>
       </header>
       <div className="studio-body">
-        <aside className="tool-rail" aria-label="Strumenti">
+        <aside className="tool-rail" aria-label={t("Strumenti del modello")}>
           <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}>
             <span className="cursor-icon">↖</span>
-            <small>Seleziona</small>
+            <small>{t("Seleziona")}</small>
           </button>
           {model.visual && (
             <>
@@ -1108,18 +1242,18 @@ function Studio(props: StudioProps) {
                 onDragStart={(event) => event.dataTransfer.setData("text/plain", "state")}
               >
                 <span className="state-tool" />
-                <small>{model.kind === "petri" ? "Luogo" : "Stato"}</small>
+                <small>{t(model.kind === "petri" ? "Luogo" : "Stato")}</small>
               </button>
               <button className={tool === "transition" ? "active" : ""} onClick={() => setTool("transition")}>
                 <Icon name="arrow" />
-                <small>{model.kind === "petri" ? "Evento" : "Transizione"}</small>
+                <small>{t(model.kind === "petri" ? "Evento" : "Transizione")}</small>
               </button>
             </>
           )}
           <span className="rail-spacer" />
           <button onClick={onTheme}>
             <Icon name="palette" />
-            <small>Tema</small>
+            <small>{t("Tema")}</small>
           </button>
         </aside>
         <section className="work-area">
@@ -1131,7 +1265,7 @@ function Studio(props: StudioProps) {
                 onClick={() => setView("canvas")}
               >
                 <Icon name="canvas" />
-                Lavagna
+                {t("Lavagna")}
               </button>
               <button className={view === "json" ? "active" : ""} onClick={() => setView("json")}>
                 <Icon name="code" />
@@ -1141,21 +1275,23 @@ function Studio(props: StudioProps) {
             <div className="workspace-help">
               {transitionFrom ? (
                 <>
-                  {model.kind === "petri"
-                    ? "Ora scegli il luogo di destinazione"
-                    : "Ora scegli lo stato di destinazione"}{" "}
-                  <kbd>Esc</kbd> annulla
+                  {t(
+                    model.kind === "petri"
+                      ? "Ora scegli il luogo di destinazione"
+                      : "Ora scegli lo stato di destinazione",
+                  )}{" "}
+                  <kbd>Esc</kbd> {t("annulla")}
                 </>
               ) : tool === "state" ? (
                 model.kind === "petri" ? (
-                  "Fai clic nella lavagna per inserire un luogo"
+                  t("Fai clic nella lavagna per inserire un luogo")
                 ) : (
-                  "Fai clic nella lavagna per inserire uno stato"
+                  t("Fai clic nella lavagna per inserire uno stato")
                 )
               ) : model.kind === "petri" ? (
-                "Trascina luoghi ed eventi per organizzare la rete"
+                t("Trascina luoghi ed eventi per organizzare la rete")
               ) : (
-                "Trascina gli stati per organizzare il modello"
+                t("Trascina gli stati per organizzare il modello")
               )}
             </div>
             <div className="zoom-controls">
@@ -1187,11 +1323,11 @@ function Studio(props: StudioProps) {
               {graph.nodes.length === 0 && (
                 <div className="canvas-empty">
                   <span className="state-tool large" />
-                  <h3>La lavagna è vuota</h3>
+                  <h3>{t("La lavagna è vuota")}</h3>
                   <p>
                     {model.kind === "petri"
-                      ? "Aggiungi un luogo e collegalo a un altro per creare un evento."
-                      : "Trascina uno stato dalla barra oppure fai clic sullo strumento Stato."}
+                      ? t("Aggiungi un luogo e collegalo a un altro per creare un evento.")
+                      : t("Trascina uno stato dalla barra oppure fai clic sullo strumento Stato.")}
                   </p>
                 </div>
               )}
@@ -1200,30 +1336,30 @@ function Studio(props: StudioProps) {
                   <>
                     <span>
                       <i className="legend-normal" />
-                      luogo
+                      {t("luogo")}
                     </span>
                     <span>
                       <i className="legend-event" />
-                      evento
+                      {t("evento")}
                     </span>
                     <span>
                       <i className="legend-token" />
-                      token
+                      {t("token")}
                     </span>
                   </>
                 ) : (
                   <>
                     <span>
                       <i className="legend-start" />
-                      iniziale
+                      {t("iniziale")}
                     </span>
                     <span>
                       <i className="legend-accept" />
-                      finale
+                      {t("finale")}
                     </span>
                     <span>
                       <i className="legend-normal" />
-                      stato
+                      {t("stato")}
                     </span>
                   </>
                 )}
@@ -1233,12 +1369,12 @@ function Studio(props: StudioProps) {
             <div className="json-workspace">
               <div className="json-head">
                 <div>
-                  <p className="kicker">Definizione completa</p>
-                  <h2>JSON del modello</h2>
+                  <p className="kicker">{t("Definizione completa")}</p>
+                  <h2>{t("JSON del modello")}</h2>
                 </div>
                 <button className="solid-button" onClick={onApplyJson}>
                   <Icon name="check" />
-                  Applica modifiche
+                  {t("Applica modifiche")}
                 </button>
               </div>
               <textarea
@@ -1256,10 +1392,11 @@ function Studio(props: StudioProps) {
               className={sidePanel === "properties" ? "active" : ""}
               onClick={() => setSidePanel("properties")}
             >
-              Proprietà
+              {t("Proprietà")}
             </button>
             <button className={sidePanel === "run" ? "active" : ""} onClick={() => setSidePanel("run")}>
-              Esecuzione{result !== undefined && <i />}
+              {t("Esecuzione")}
+              {result !== undefined && <i />}
             </button>
           </div>
           {sidePanel === "properties" ? (
@@ -1308,8 +1445,18 @@ function Graph({
       {
         <svg className="edge-layer" width="1400" height="900" aria-hidden="true">
           <defs>
-            <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-              <path d="M0,0 L8,4 L0,8 z" />
+            <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+              <path d="M0,0 L12,6 L0,12 z" />
+            </marker>
+            <marker
+              id="arrowhead-selected"
+              markerWidth="12"
+              markerHeight="12"
+              refX="10"
+              refY="6"
+              orient="auto"
+            >
+              <path d="M0,0 L12,6 L0,12 z" />
             </marker>
           </defs>
           {graph.edges.map((edge) => {
@@ -1317,11 +1464,34 @@ function Graph({
               to = byId.get(edge.to);
             if (!from || !to) return null;
             const self = from.id === to.id;
-            const path = self
-              ? `M ${from.x - 20} ${from.y - 42} C ${from.x - 80} ${from.y - 105}, ${from.x + 80} ${from.y - 105}, ${from.x + 20} ${from.y - 42}`
-              : `M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${(from.y + to.y) / 2 - 28} ${to.x} ${to.y}`;
-            const lx = self ? from.x : (from.x + to.x) / 2,
-              ly = self ? from.y - 91 : (from.y + to.y) / 2 - 20;
+            let path: string;
+            let lx: number;
+            let ly: number;
+            let origin: { x: number; y: number } | undefined;
+            if (self) {
+              path = `M ${from.x - 24} ${from.y - 34} C ${from.x - 82} ${from.y - 112}, ${from.x + 82} ${from.y - 112}, ${from.x + 24} ${from.y - 34}`;
+              lx = from.x;
+              ly = from.y - 94;
+            } else {
+              const dx = to.x - from.x;
+              const dy = to.y - from.y;
+              const distance = Math.max(1, Math.hypot(dx, dy));
+              const ux = dx / distance;
+              const uy = dy / distance;
+              const startRadius = from.role === "event" ? 25 : 39;
+              const endRadius = to.role === "event" ? 30 : 45;
+              const sx = from.x + ux * startRadius;
+              const sy = from.y + uy * startRadius;
+              origin = { x: sx, y: sy };
+              const ex = to.x - ux * endRadius;
+              const ey = to.y - uy * endRadius;
+              const curve = Math.min(42, Math.max(22, distance * 0.13));
+              const cx = (from.x + to.x) / 2 - uy * curve;
+              const cy = (from.y + to.y) / 2 + ux * curve;
+              path = `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
+              lx = 0.25 * sx + 0.5 * cx + 0.25 * ex;
+              ly = 0.25 * sy + 0.5 * cy + 0.25 * ey;
+            }
             return (
               <g
                 className={selection?.type === "edge" && selection.id === edge.id ? "edge selected" : "edge"}
@@ -1331,7 +1501,15 @@ function Graph({
                   onSelect({ type: "edge", id: edge.id });
                 }}
               >
-                <path d={path} />
+                <path
+                  d={path}
+                  markerEnd={
+                    selection?.type === "edge" && selection.id === edge.id
+                      ? "url(#arrowhead-selected)"
+                      : "url(#arrowhead)"
+                  }
+                />
+                {origin && <circle className="edge-origin" cx={origin.x} cy={origin.y} r="3.5" />}
                 <rect
                   x={lx - Math.max(23, edge.label.length * 3.6)}
                   y={ly - 13}
@@ -1383,6 +1561,7 @@ function Properties({
   onUpdateEdge: (label: string) => void;
   onRemove: () => void;
 }) {
+  const { t } = useI18n();
   if (!node && !edge)
     return (
       <div className="inspector-empty">
@@ -1391,16 +1570,18 @@ function Properties({
           <b />
           <i />
         </span>
-        <h3>Nessuna selezione</h3>
+        <h3>{t("Nessuna selezione")}</h3>
         <p>
-          {model.kind === "petri"
-            ? "Seleziona un luogo, un evento o un arco per modificarne le proprietà."
-            : "Seleziona uno stato o una transizione per modificarne le proprietà."}
+          {t(
+            model.kind === "petri"
+              ? "Seleziona un luogo, un evento o un arco per modificarne le proprietà."
+              : "Seleziona uno stato o una transizione per modificarne le proprietà.",
+          )}
         </p>
         <div className="tip">
-          <strong>Suggerimento</strong>
+          <strong>{t("Suggerimento")}</strong>
           <span>
-            Premi <kbd>Esc</kbd> per tornare allo strumento di selezione.
+            {t("Premi")} <kbd>Esc</kbd> {t("per tornare allo strumento di selezione.")}
           </span>
         </div>
       </div>
@@ -1427,30 +1608,30 @@ function Properties({
       {node ? (
         <>
           <label>
-            Identificatore
+            {t("Identificatore")}
             <input value={node.id} onChange={(event) => onRenameNode(event.target.value)} />
           </label>
           <label>
-            Etichetta
+            {t("Etichetta")}
             <input value={node.label} onChange={(event) => onUpdateNode({ label: event.target.value })} />
           </label>
           {node.role !== "place" && node.role !== "event" && (
             <label>
-              Ruolo
+              {t("Ruolo")}
               <select
                 value={node.role}
                 onChange={(event) => onUpdateNode({ role: event.target.value as GraphNode["role"] })}
               >
-                <option value="normal">Stato normale</option>
-                <option value="start">Stato iniziale</option>
-                <option value="accept">Stato finale</option>
-                <option value="start-accept">Iniziale e finale</option>
+                <option value="normal">{t("Stato normale")}</option>
+                <option value="start">{t("Stato iniziale")}</option>
+                <option value="accept">{t("Stato finale")}</option>
+                <option value="start-accept">{t("Iniziale e finale")}</option>
               </select>
             </label>
           )}
           {node.tokens !== undefined && (
             <label>
-              Token
+              {t("Token")}
               <input
                 type="number"
                 min="0"
@@ -1468,7 +1649,7 @@ function Properties({
             <span>{edge?.to}</span>
           </div>
           <label>
-            Etichetta della transizione
+            {t("Etichetta della transizione")}
             <input value={edge?.label ?? ""} onChange={(event) => onUpdateEdge(event.target.value)} />
             <small>
               {model.kind === "mealy"
@@ -1516,6 +1697,7 @@ function Runner({
   onRun: () => void;
   onAction: (action: ModelAction) => void;
 }) {
+  const { t } = useI18n();
   const hint =
     model.kind === "petri"
       ? "Sequenza di transizioni"
@@ -1545,8 +1727,8 @@ function Runner({
       <div className="run-intro">
         <span className={`run-model accent-${model.accent}`}>{model.code}</span>
         <div>
-          <p className="kicker">Banco di prova</p>
-          <h3>Esegui il modello</h3>
+          <p className="kicker">{t("Banco di prova")}</p>
+          <h3>{t("Esegui il modello")}</h3>
         </div>
       </div>
       <label>
@@ -1561,13 +1743,13 @@ function Runner({
       <button className="run-button" onClick={onRun}>
         <span>
           <Icon name="play" />
-          Avvia simulazione
+          {t("Avvia simulazione")}
         </span>
         <kbd>⌘ ↵</kbd>
       </button>
       {actions.length > 0 && (
         <div className="model-actions">
-          <span>Strumenti del modello</span>
+          <span>{t("Strumenti del modello")}</span>
           {actions.map((action) => (
             <button key={action.id} onClick={() => onAction(action.id)}>
               <Icon name="arrow" size={15} />
@@ -1578,11 +1760,11 @@ function Runner({
       )}
       <div className="result-box" aria-live="polite">
         <div className="result-head">
-          <span>Risultato</span>
+          <span>{t("Risultato")}</span>
           {result !== undefined && !error && (
             <small>
               <i />
-              completato
+              {t("completato")}
             </small>
           )}
         </div>
@@ -1601,6 +1783,171 @@ function Runner({
   );
 }
 
+function TheoryPage({ model, onBack, onOpen }: { model: ModelMeta; onBack: () => void; onOpen: () => void }) {
+  const { language, t } = useI18n();
+  const theory = language === "it" ? theories[model.kind] : theoryInEnglish(model.kind);
+  return (
+    <main className="theory-screen">
+      <nav className="topbar">
+        <Brand />
+        <div className="top-actions">
+          <LanguageMenu />
+          <button
+            className="ghost-button"
+            onClick={() => void openUrl("https://github.com/Tony0380/Computability")}
+          >
+            <Icon name="code" />
+            {t("Repository GitHub")}
+          </button>
+        </div>
+      </nav>
+      <div className="theory-wrap">
+        <button className="back-button" onClick={onBack}>
+          <Icon name="back" />
+          {t("Torna al catalogo")}
+        </button>
+        <header className={`theory-hero accent-${model.accent}`}>
+          <div className="theory-model-mark">
+            <ModelGlyph model={model} />
+            <span>{model.code}</span>
+          </div>
+          <div>
+            <p className="kicker">{t("Teoria")}</p>
+            <h1>{t(model.name)}</h1>
+            <p>{t(theory.summary)}</p>
+          </div>
+        </header>
+        <section className="theory-grid">
+          <article className="theory-card formal-card">
+            <p className="kicker">{t("Definizione formale")}</p>
+            <div className="formal-tuple">{theory.tuple}</div>
+            <div className="component-list">
+              {theory.components.map((component) => (
+                <div key={`${component.symbol}-${component.label}`}>
+                  <code>{component.symbol}</code>
+                  <span>{t(component.label)}</span>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="theory-card">
+            <p className="kicker">{t("Dinamica")}</p>
+            <div className="theory-formula">{theory.dynamics}</div>
+          </article>
+          <article className="theory-card">
+            <p className="kicker">{t("Condizione di accettazione")}</p>
+            <div className="theory-formula">{theory.acceptance}</div>
+          </article>
+          <article className="theory-card power-card">
+            <p className="kicker">{t("Potere espressivo")}</p>
+            <h2>{t(theory.power)}</h2>
+            <ul>
+              {theory.notes.map((note) => (
+                <li key={note}>{t(note)}</li>
+              ))}
+            </ul>
+          </article>
+        </section>
+        <div className="theory-actions">
+          <button className="solid-button" onClick={onOpen}>
+            <Icon name="canvas" />
+            {t("Apri nel laboratorio")}
+          </button>
+          <button className="ghost-button" onClick={onBack}>
+            {t("Torna al catalogo")}
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function UpdateDialog({
+  status,
+  update,
+  progress,
+  onCheck,
+  onInstall,
+  onClose,
+}: {
+  status: "idle" | "checking" | "current" | "available" | "downloading" | "error";
+  update: Update | null;
+  progress: number;
+  onCheck: () => void;
+  onInstall: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div
+      className="dialog-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title">
+        <button className="dialog-close" onClick={onClose} aria-label="Chiudi">
+          <Icon name="close" />
+        </button>
+        <span className={`update-symbol status-${status}`}>
+          <Icon
+            name={status === "available" ? "download" : status === "current" ? "check" : "more"}
+            size={27}
+          />
+        </span>
+        <p className="kicker">Computability</p>
+        <h2 id="update-title">
+          {status === "available"
+            ? t("Nuova versione disponibile")
+            : status === "current"
+              ? t("Versione più recente installata")
+              : status === "downloading"
+                ? t("Download aggiornamento…")
+                : t("Aggiornamenti")}
+        </h2>
+        {update && (
+          <div className="version-route">
+            <span>v{update.currentVersion}</span>
+            <Icon name="arrow" />
+            <strong>v{update.version}</strong>
+          </div>
+        )}
+        {status === "checking" && (
+          <div className="update-loading">
+            <i />
+            <span>{t("Controllo aggiornamenti")}</span>
+          </div>
+        )}
+        {status === "downloading" && (
+          <div className="progress-track">
+            <i style={{ width: `${progress}%` }} />
+            <span>{progress}%</span>
+          </div>
+        )}
+        {status === "error" && (
+          <p className="update-error">
+            {t("Impossibile controllare gli aggiornamenti. Verifica la connessione e riprova.")}
+          </p>
+        )}
+        {update?.body && <p className="update-notes">{update.body}</p>}
+        <div className="update-actions">
+          {status === "available" && (
+            <button className="solid-button" onClick={onInstall}>
+              <Icon name="download" />
+              {t("Scarica e aggiorna")}
+            </button>
+          )}
+          {(status === "current" || status === "error" || status === "idle") && (
+            <button className="ghost-button" onClick={onCheck}>
+              {t("Controlla aggiornamenti")}
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ThemeDialog({
   theme,
   onTheme,
@@ -1610,6 +1957,7 @@ function ThemeDialog({
   onTheme: (theme: ThemeName) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className="dialog-backdrop"
@@ -1618,12 +1966,12 @@ function ThemeDialog({
       }}
     >
       <section className="theme-dialog" role="dialog" aria-modal="true" aria-labelledby="theme-title">
-        <button className="dialog-close" onClick={onClose} aria-label="Chiudi">
+        <button className="dialog-close" onClick={onClose} aria-label={t("Chiudi")}>
           <Icon name="close" />
         </button>
-        <p className="kicker">Aspetto</p>
-        <h2 id="theme-title">Scegli il tuo ambiente</h2>
-        <p>I colori cambiano, la leggibilità resta la stessa.</p>
+        <p className="kicker">{t("Aspetto")}</p>
+        <h2 id="theme-title">{t("Scegli il tuo ambiente")}</h2>
+        <p>{t("I colori cambiano, la leggibilità resta la stessa.")}</p>
         <div className="theme-list">
           {themes.map((item) => (
             <button
@@ -1636,7 +1984,7 @@ function ThemeDialog({
                   <i key={color} style={{ background: color }} />
                 ))}
               </span>
-              <strong>{item.name}</strong>
+              <strong>{t(item.name)}</strong>
               {theme === item.id && (
                 <span className="theme-check">
                   <Icon name="check" />
@@ -1646,7 +1994,7 @@ function ThemeDialog({
           ))}
         </div>
         <button className="solid-button dialog-done" onClick={onClose}>
-          Applica tema
+          {t("Applica tema")}
         </button>
       </section>
     </div>

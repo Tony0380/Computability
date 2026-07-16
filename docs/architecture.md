@@ -43,3 +43,16 @@ The frontend sends an explicit model discriminator and a definition to the
 `simulate` command. It does not reproduce formal-language algorithms. This
 keeps Rust as the single source of truth and allows a future browser or CLI
 client to reuse the same core.
+
+## Desktop delivery boundary
+
+The desktop shell owns release discovery and installation through Tauri's
+updater and process plugins. The interface can request a check and display
+download progress, but it cannot bypass signature verification. GitHub Releases
+hosts the platform installer, its detached signature and `latest.json`; the
+private signing key exists only as encrypted Actions secrets.
+
+The visual catalogue and workspace share one localization provider. Formal
+theory is stored separately from machine definitions so educational copy cannot
+alter simulation semantics. Italian and English theory records preserve the
+same tuples and formula fields.
