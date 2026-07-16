@@ -6,8 +6,10 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 use serde::{Deserialize, Serialize};
+mod algorithms;
 mod machine;
 
+pub use algorithms::*;
 pub use machine::{Machine, SimulationError};
 
 pub const EPSILON: &str = "ε";
@@ -743,6 +745,8 @@ pub struct Ll1Conflict {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Ll1Analysis {
+    pub first: BTreeMap<String, BTreeSet<String>>,
+    pub follow: BTreeMap<String, BTreeSet<String>>,
     pub entries: Vec<Ll1Entry>,
     pub conflicts: Vec<Ll1Conflict>,
 }
@@ -943,7 +947,7 @@ impl ContextFreeGrammar {
             .filter(|(_, alternatives)| alternatives.len() > 1)
             .map(|((variable, lookahead), alternatives)| Ll1Conflict { variable, lookahead, alternatives })
             .collect();
-        Ok(Ll1Analysis { entries, conflicts })
+        Ok(Ll1Analysis { first, follow, entries, conflicts })
     }
 
     pub fn parse_ll1(&self, word: &[String]) -> Result<Ll1Run, SimulationError> {

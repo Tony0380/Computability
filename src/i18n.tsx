@@ -167,6 +167,7 @@ const rows: Row[] = [
     "Como quer começar? Pode alternar entre a tela e o editor de regras a qualquer momento.",
   ],
   ["Catalogo", "Catalogue", "Catalogue", "Katalog", "Catálogo", "Catálogo"],
+  ["Algoritmi", "Algorithms", "Algorithmes", "Algorithmen", "Algoritmos", "Algoritmos"],
   [
     "Scelta modello",
     "Model setup",

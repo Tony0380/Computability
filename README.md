@@ -15,8 +15,13 @@ the interface does not silently change a definition.
 - Guided rule editors for grammars, L-systems, and regular expressions.
 - Multiple open workspaces with local save, reopen, and portable JSON export/import.
 - Execution traces, validation errors, and bounded simulation controls.
-- Transformations including NFA to DFA, DFA minimisation, regular expression to
-  NFA, regular grammar to NFA, CFG to PDA, CYK parsing, and LL(1) parsing.
+- A dedicated Algorithms laboratory with formal guidance, ordered derivation
+  steps, result export, and direct links back into editable workspaces.
+- Transformations including Thompson construction, NFA to DFA, DFA
+  minimisation, FA to regular expression, epsilon and unreachable-state
+  elimination, regular grammar to NFA, CFG to PDA, and Chomsky normal form.
+- Analysis tools for DFA equivalence, CYK, FIRST/FOLLOW and LL(1), plus guided
+  pumping-lemma decomposition for regular and context-free languages.
 - English, Italian, French, German, Spanish, and Portuguese localization.
 - Four built-in themes and an updater backed by signed Tauri release metadata.
 

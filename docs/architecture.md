@@ -44,6 +44,19 @@ The frontend sends an explicit model discriminator and a definition to the
 keeps Rust as the single source of truth and allows a future browser or CLI
 client to reuse the same core.
 
+The `run_algorithm` command follows the same boundary for transformations and
+proof assistants. Requests are tagged by algorithm; Rust returns a typed final
+object together with ordered derivation steps and machine-readable facts. The
+Algorithms screen selects existing workspaces, renders those steps, exports the
+complete report, and can open model-producing results in a new workspace. It
+never reimplements a construction in TypeScript.
+
+Pumping-lemma reports are deliberately structural teaching aids. The core
+checks the regular constraints `|xy| <= p, |y| > 0` or the context-free
+constraints `|vxy| <= p, |vy| > 0`, then materializes requested exponents. A
+caller must still supply the language-specific membership argument and respect
+the quantifier order of the lemma.
+
 ## Desktop delivery boundary
 
 The desktop shell owns release discovery and installation through Tauri's

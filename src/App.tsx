@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 import { catalogue, metaFor, type ModelMeta } from "./catalog";
+import { AlgorithmLab } from "./algorithms";
 import { stepCanvasZoom, zoomDirectionFromKey } from "./canvasZoom";
 import { examples, type Definition, type MachineKind } from "./domain";
 import { GuidedDefinitionEditor } from "./guidedEditor";
@@ -37,7 +38,7 @@ import {
   type WorkspaceTab,
 } from "./workspace";
 
-type Screen = "home" | "method" | "studio" | "theory";
+type Screen = "home" | "method" | "studio" | "theory" | "algorithms";
 type ThemeName = "paper" | "midnight" | "clay" | "contrast";
 type Tool = "select" | "state" | "transition";
 type Selection = { type: "node" | "edge"; id: string } | null;
@@ -211,11 +212,13 @@ function WindowTitlebar({
   const section =
     screen === "home"
       ? t("Catalogo")
-      : screen === "method"
-        ? t("Scelta modello")
-        : screen === "theory"
-          ? `${t("Teoria")} · ${modelCode}`
-          : projectName;
+      : screen === "algorithms"
+        ? t("Algoritmi")
+        : screen === "method"
+          ? t("Scelta modello")
+          : screen === "theory"
+            ? `${t("Teoria")} · ${modelCode}`
+            : projectName;
 
   async function toggleMaximize() {
     if (!currentWindow) return;
@@ -564,6 +567,40 @@ export default function App() {
   function returnHome() {
     if (screen === "studio") setOpenTabs((current) => upsertWorkspaceTab(current, workspaceSnapshot()));
     setScreen("home");
+  }
+  function useWorkspaceAsAlgorithmSource(workspace: WorkspaceTab) {
+    setKind(workspace.kind);
+    setDefinition(workspace.definition);
+    setGraph(workspace.graph);
+    setProject({ id: workspace.id, name: workspace.name });
+    setInput(workspace.input);
+    setResult(undefined);
+    setError(undefined);
+  }
+  function openAlgorithmResult(nextKind: MachineKind, nextDefinition: Definition, name: string) {
+    const nextProject = { id: projectId(), name };
+    const nextGraph = graphFromDefinition(nextKind, nextDefinition);
+    const nextView = metaFor(nextKind).visual ? "canvas" : "rules";
+    setKind(nextKind);
+    setDefinition(nextDefinition);
+    setGraph(nextGraph);
+    setProject(nextProject);
+    setView(nextView);
+    setSelection(null);
+    setResult(undefined);
+    setError(undefined);
+    setOpenTabs((current) =>
+      upsertWorkspaceTab(current, {
+        ...nextProject,
+        kind: nextKind,
+        definition: nextDefinition,
+        graph: nextGraph,
+        input: "",
+        view: nextView,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+    setScreen("studio");
   }
   function saveProject() {
     const nextDefinition = currentDefinition();
@@ -919,6 +956,17 @@ export default function App() {
                 setScreen("theory");
               }}
               onUpdates={() => void checkForUpdates()}
+              onAlgorithms={() => setScreen("algorithms")}
+            />
+          )}
+          {screen === "algorithms" && (
+            <AlgorithmLab
+              kind={kind}
+              definition={currentDefinition()}
+              workspaces={openTabs}
+              onBack={() => setScreen("home")}
+              onUseWorkspace={useWorkspaceAsAlgorithmSource}
+              onOpenResult={openAlgorithmResult}
             />
           )}
           {screen === "method" && (
@@ -1030,6 +1078,7 @@ type HomeProps = {
   onTheme: () => void;
   onTheory: (kind: MachineKind) => void;
   onUpdates: () => void;
+  onAlgorithms: () => void;
 };
 function Home({
   projects,
@@ -1048,6 +1097,7 @@ function Home({
   onTheme,
   onTheory,
   onUpdates,
+  onAlgorithms,
 }: HomeProps) {
   const { language, t } = useI18n();
   return (
@@ -1056,6 +1106,10 @@ function Home({
         <Brand />
         <div className="top-actions">
           <LanguageMenu />
+          <button className="ghost-button" onClick={onAlgorithms}>
+            <Icon name="code" />
+            {t("Algoritmi")}
+          </button>
           <button className="ghost-button" onClick={onUpdates}>
             <Icon name="download" />
             {t("Aggiornamenti")}

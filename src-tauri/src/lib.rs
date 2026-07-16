@@ -1,7 +1,10 @@
 use computability_core::{
-    ContextFreeGrammar, ContextualLSystem, FiniteAutomaton, LSystem, Machine, MealyMachine, MooreMachine,
-    MultiTapeTuringMachine, PetriNet, PushdownAutomaton, RegularExpression, RegularGrammar,
-    StochasticLSystem, TuringMachine, UnrestrictedGrammar,
+    AutomatonAlgorithmReport, ContextFreeGrammar, ContextFreePumpingReport, ContextualLSystem, CykRun,
+    DfaEquivalenceReport, FiniteAutomaton, GrammarAlgorithmReport, LSystem, Ll1Analysis, Machine,
+    MealyMachine, MooreMachine, MultiTapeTuringMachine, PetriNet, PumpingRequest, PushdownAlgorithmReport,
+    PushdownAutomaton, RegexAlgorithmReport, RegularExpression, RegularGrammar, RegularPumpingReport,
+    StochasticLSystem, TuringMachine, UnrestrictedGrammar, analyze_context_free_pumping,
+    analyze_regular_pumping,
 };
 use serde::{Deserialize, Serialize};
 
@@ -49,6 +52,39 @@ enum TransformationRequest {
     MinimizeDfa(FiniteAutomaton),
     RegexToNfa(RegularExpression),
     RegularGrammarToNfa(RegularGrammar),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", content = "input", rename_all = "snake_case")]
+enum AlgorithmRequest {
+    Thompson(RegularExpression),
+    SubsetConstruction(FiniteAutomaton),
+    DfaMinimization(FiniteAutomaton),
+    StateElimination(FiniteAutomaton),
+    EpsilonElimination(FiniteAutomaton),
+    RemoveUnreachable(FiniteAutomaton),
+    DfaEquivalence { left: FiniteAutomaton, right: FiniteAutomaton },
+    RegularGrammarToNfa(RegularGrammar),
+    CfgToPda(ContextFreeGrammar),
+    ChomskyNormalForm(ContextFreeGrammar),
+    Ll1Analysis(ContextFreeGrammar),
+    Cyk { grammar: ContextFreeGrammar, word: Vec<String> },
+    RegularPumping(PumpingRequest),
+    ContextFreePumping(PumpingRequest),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", content = "result", rename_all = "snake_case")]
+enum AlgorithmResponse {
+    Automaton(AutomatonAlgorithmReport),
+    Regex(RegexAlgorithmReport),
+    Grammar(GrammarAlgorithmReport),
+    Pushdown(PushdownAlgorithmReport),
+    Equivalence(DfaEquivalenceReport),
+    Ll1(Ll1Analysis),
+    Cyk(CykRun),
+    RegularPumping(RegularPumpingReport),
+    ContextFreePumping(ContextFreePumpingReport),
 }
 
 #[tauri::command]
@@ -112,6 +148,49 @@ fn cfg_to_pda(grammar: ContextFreeGrammar) -> Result<PushdownAutomaton, String> 
 }
 
 #[tauri::command]
+fn run_algorithm(request: AlgorithmRequest) -> Result<AlgorithmResponse, String> {
+    match request {
+        AlgorithmRequest::Thompson(expression) => {
+            expression.thompson_report().map(AlgorithmResponse::Automaton)
+        }
+        AlgorithmRequest::SubsetConstruction(machine) => {
+            machine.determinize_report().map(AlgorithmResponse::Automaton)
+        }
+        AlgorithmRequest::DfaMinimization(machine) => {
+            machine.minimize_report().map(AlgorithmResponse::Automaton)
+        }
+        AlgorithmRequest::StateElimination(machine) => {
+            machine.to_regex_report().map(AlgorithmResponse::Regex)
+        }
+        AlgorithmRequest::EpsilonElimination(machine) => {
+            machine.eliminate_epsilon_report().map(AlgorithmResponse::Automaton)
+        }
+        AlgorithmRequest::RemoveUnreachable(machine) => {
+            machine.remove_unreachable_report().map(AlgorithmResponse::Automaton)
+        }
+        AlgorithmRequest::DfaEquivalence { left, right } => {
+            left.equivalent_to(&right).map(AlgorithmResponse::Equivalence)
+        }
+        AlgorithmRequest::RegularGrammarToNfa(grammar) => {
+            grammar.to_nfa_report().map(AlgorithmResponse::Automaton)
+        }
+        AlgorithmRequest::CfgToPda(grammar) => grammar.to_pda_report().map(AlgorithmResponse::Pushdown),
+        AlgorithmRequest::ChomskyNormalForm(grammar) => {
+            grammar.chomsky_report().map(AlgorithmResponse::Grammar)
+        }
+        AlgorithmRequest::Ll1Analysis(grammar) => grammar.ll1_analysis().map(AlgorithmResponse::Ll1),
+        AlgorithmRequest::Cyk { grammar, word } => grammar.cyk(&word).map(AlgorithmResponse::Cyk),
+        AlgorithmRequest::RegularPumping(request) => {
+            analyze_regular_pumping(&request).map(AlgorithmResponse::RegularPumping)
+        }
+        AlgorithmRequest::ContextFreePumping(request) => {
+            analyze_context_free_pumping(&request).map(AlgorithmResponse::ContextFreePumping)
+        }
+    }
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn model_catalogue() -> Vec<ModelDescriptor> {
     vec![
         ModelDescriptor::ready("DFA", "Deterministic finite automaton", "Finite automata"),
@@ -157,7 +236,13 @@ pub fn run() {
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![simulate, transform, cfg_to_pda, model_catalogue])
+        .invoke_handler(tauri::generate_handler![
+            simulate,
+            transform,
+            cfg_to_pda,
+            run_algorithm,
+            model_catalogue
+        ])
         .run(tauri::generate_context!())
         .expect("failed to start Computability");
 }
