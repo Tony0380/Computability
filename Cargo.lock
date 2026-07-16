@@ -503,7 +503,7 @@ dependencies = [
 
 [[package]]
 name = "computability"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "computability-core",
  "serde",
@@ -517,7 +517,7 @@ dependencies = [
 
 [[package]]
 name = "computability-core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "serde",
  "thiserror 2.0.18",
