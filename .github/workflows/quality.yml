@@ -35,6 +35,8 @@ jobs:
         run: npm run lint
       - name: Build interface
         run: npm run build
+      - name: Verify release metadata
+        run: npm run release:check
 
   tag-master:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
