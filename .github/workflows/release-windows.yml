@@ -19,6 +19,8 @@ jobs:
        github.event.workflow_run.head_branch == 'master' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: windows-latest
+    env:
+      HAS_SIGNING_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,7 +50,7 @@ jobs:
       - name: Build Windows installers
         run: npm.cmd run build:app -- --bundles nsis,msi
       - name: Sign Windows installers when a certificate is configured
-        if: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 != '' }}
+        if: env.HAS_SIGNING_CERTIFICATE == 'true'
         env:
           CERTIFICATE_PFX_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_PFX_BASE64 }}
           CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
