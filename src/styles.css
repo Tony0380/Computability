@@ -1638,6 +1638,10 @@ button:disabled {
     100px 100px;
   touch-action: none;
 }
+.canvas:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -3px;
+}
 .canvas.tool-state {
   cursor: crosshair;
 }
@@ -1991,6 +1995,67 @@ button:disabled {
   color: var(--card-accent);
 }
 .rule-field small {
+  color: var(--faint);
+  font-size: 7px;
+}
+.symbol-list-editor {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.symbol-list-editor legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 650;
+}
+.symbol-list-rows {
+  display: grid;
+  gap: 6px;
+}
+.symbol-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 31px;
+  gap: 6px;
+}
+.symbol-list-row input {
+  width: 100%;
+  min-width: 0;
+  height: 35px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    10px "Cascadia Mono",
+    monospace;
+}
+.symbol-list-row button {
+  height: 35px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 15px;
+}
+.symbol-list-row button:hover,
+.symbol-list-row button:focus-visible {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.symbol-list-new {
+  margin-top: 2px;
+}
+.symbol-list-new input {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--brand) 3%, var(--bg));
+}
+.symbol-list-editor > small {
+  display: block;
+  margin-top: 6px;
   color: var(--faint);
   font-size: 7px;
 }

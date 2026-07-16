@@ -1,6 +1,7 @@
 import type { ModelMeta } from "./catalog";
 import type { Definition, MachineKind } from "./domain";
 import { useI18n } from "./i18n";
+import { useState } from "react";
 
 type RecordValue = Record<string, unknown>;
 
@@ -76,8 +77,79 @@ const isRecord = (value: unknown): value is RecordValue =>
 const isPrimitiveRecord = (value: RecordValue) =>
   Object.values(value).every((item) => ["string", "number", "boolean"].includes(typeof item));
 const tokens = (value: unknown[]) => value.map(String).join(" ");
-const untoken = (value: string) => (value.trim() ? value.trim().split(/\s+/) : []);
 const labelFor = (key: string) => fieldLabels[key] ?? key.replaceAll("_", " ");
+
+function SymbolListEditor({
+  name,
+  value,
+  onChange,
+}: {
+  name: string;
+  value: unknown[];
+  onChange: (value: unknown[]) => void;
+}) {
+  const { t } = useI18n();
+  const [draft, setDraft] = useState("");
+  const label = t(labelFor(name));
+
+  function addDraft() {
+    const symbol = draft.trim();
+    if (!symbol) return;
+    onChange([...value, symbol]);
+    setDraft("");
+  }
+
+  return (
+    <fieldset className="symbol-list-editor">
+      <legend>{label}</legend>
+      <div className="symbol-list-rows">
+        {value.map((symbol, index) => (
+          <div className="symbol-list-row" key={`${name}-${index}`}>
+            <input
+              aria-label={`${label} ${index + 1}`}
+              value={String(symbol)}
+              onChange={(event) =>
+                onChange(value.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))
+              }
+            />
+            <button
+              type="button"
+              aria-label={`${t("Rimuovi simbolo")} ${String(symbol)}`}
+              title={t("Rimuovi simbolo")}
+              onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <div className="symbol-list-row symbol-list-new">
+          <input
+            aria-label={`${label}: ${t("Nuovo simbolo")}`}
+            value={draft}
+            placeholder={t("Nuovo simbolo")}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={addDraft}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                addDraft();
+              }
+            }}
+          />
+          <button
+            type="button"
+            aria-label={t("Aggiungi simbolo")}
+            title={t("Aggiungi simbolo")}
+            onClick={addDraft}
+          >
+            +
+          </button>
+        </div>
+      </div>
+      <small>{t("Un simbolo per campo. Premi Invio per aggiungerne un altro.")}</small>
+    </fieldset>
+  );
+}
 
 function blankLike(value: unknown): unknown {
   if (typeof value === "string") return "";
@@ -320,17 +392,7 @@ function ValueEditor({
       "outputs",
     ]);
     if (!structuredLists.has(name) && value.every((item) => !isRecord(item)))
-      return (
-        <label className="rule-field token-field">
-          <span>{t(labelFor(name))}</span>
-          <input
-            value={tokens(value)}
-            onChange={(event) => onChange(untoken(event.target.value))}
-            placeholder="a b c"
-          />
-          <small>{t("Separa i simboli con uno spazio")}</small>
-        </label>
-      );
+      return <SymbolListEditor name={name} value={value} onChange={onChange} />;
     const rows = value.filter(isRecord);
     return (
       <section className={`nested-rule-set ${nested ? "nested" : ""}`}>

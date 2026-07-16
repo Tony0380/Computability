@@ -74,7 +74,10 @@ JSON. State-based machines and Petri nets have an interactive canvas for
 dragging nodes, connecting transitions, editing labels and assigning semantic
 roles. Every model also has a guided editor suited to its structure: productions
 for grammars, transition rows for machines, weighted rules for stochastic
-systems, arcs for Petri nets, and focused fields for regular expressions.
+systems, arcs for Petri nets, and focused fields for regular expressions. Canvas
+workspaces scroll normally and zoom with `Ctrl` + mouse wheel, `Ctrl` + `+`, or
+`Ctrl` + `-`. Symbol sequences use one removable field per symbol instead of a
+space-delimited text box.
 
 Multiple projects can stay open at the same time in workspace tabs. Returning
 to the catalogue does not close them: the home screen shows every open workspace
@@ -82,7 +85,7 @@ and restores it with its current model, editor and unsaved changes.
 
 ### See it in action
 
-![Computability catalogue with two open workspaces](docs/screenshots/home-workspaces.png)
+![Complete Computability model catalogue](docs/screenshots/catalogue.png)
 
 | Visual automaton canvas                                                              | Guided grammar rule editor                                                          |
 | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
