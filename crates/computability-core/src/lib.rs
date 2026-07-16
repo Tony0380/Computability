@@ -362,7 +362,7 @@ impl TuringMachine {
                 return Err(SimulationError::StepLimit(max_steps));
             }
             let read = tape.get(&head).cloned().unwrap_or_else(|| BLANK.into());
-            let Some(t) = transitions.get(&(state.as_str(), read.as_str())) else {
+            let Some(t) = transitions.get(&(state.as_str(), read.as_str())).cloned() else {
                 return Ok(Self::result(false, true, step, &tape, head, state, "No transition applies."));
             };
             tape.insert(head, t.write.clone());
@@ -2095,8 +2095,8 @@ mod tests {
     #[test]
     fn regular_expression_compiles_to_an_nfa() {
         let expression = RegularExpression { expression: "a(b|c)*".into() };
-        assert!(expression.simulate(&["a".into(), "b".into(), "c".into()]).unwrap().accepted);
-        assert!(!expression.simulate(&["b".into()]).unwrap().accepted);
+        assert!(expression.simulate(&vec!["a".into(), "b".into(), "c".into()]).unwrap().accepted);
+        assert!(!expression.simulate(&vec!["b".into()]).unwrap().accepted);
     }
     #[test]
     fn mealy_machine_emits_transition_outputs() {
