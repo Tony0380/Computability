@@ -72,6 +72,12 @@ const descriptions: Record<MachineKind, string> = {
   petri: "Imposta i token iniziali e gli archi pesati di ciascun evento.",
 };
 
+// This export is test-only data used to guarantee locale coverage.
+// eslint-disable-next-line react-refresh/only-export-components
+export const guidedEditorTranslationSources = [
+  ...new Set([...Object.values(fieldLabels), ...Object.values(descriptions)]),
+];
+
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const isPrimitiveRecord = (value: RecordValue) =>

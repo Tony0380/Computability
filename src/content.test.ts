@@ -1,13 +1,41 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { catalogue } from "./catalog";
 import { examples, supportsGuidedDefinition } from "./domain";
-import { translate, type Language } from "./i18n";
+import { hasTranslation, translate, type Language } from "./i18n";
+import { guidedEditorTranslationSources } from "./guidedEditor";
 import { theories } from "./theory";
-import { theoryInEnglish } from "./theoryEnglish";
+import { theoryForLanguage } from "./theoryLocalized";
 
 const translatedLanguages: Language[] = ["en", "fr", "de", "es", "pt"];
 
 describe("localized model catalogue", () => {
+  it("defines every literal interface translation in every language", () => {
+    const files = ["App.tsx", "guidedEditor.tsx"];
+    const sources = new Set<string>();
+    for (const file of files) {
+      const content = readFileSync(resolve(process.cwd(), "src", file), "utf8");
+      for (const match of content.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/gs))
+        sources.add(JSON.parse(`"${match[1]}"`));
+    }
+    const missing: string[] = [];
+    for (const language of translatedLanguages)
+      for (const source of sources)
+        if (!hasTranslation(language, source)) missing.push(`${language}: ${source}`);
+    expect(missing).toEqual([]);
+  });
+
+  it("defines every dynamic guided-editor translation in every language", () => {
+    const missing: string[] = [];
+    for (const language of translatedLanguages) {
+      for (const source of guidedEditorTranslationSources) {
+        if (!hasTranslation(language, source)) missing.push(`${language}: ${source}`);
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
   it("offers a guided editor for every model definition", () => {
     for (const model of catalogue) expect(supportsGuidedDefinition(examples[model.kind])).toBe(true);
   });
@@ -72,10 +100,18 @@ describe("theory catalogue", () => {
       expect(theory.acceptance).toBeTruthy();
       expect(theory.power).toBeTruthy();
       expect(theory.notes.length).toBeGreaterThanOrEqual(2);
-      const englishTheory = theoryInEnglish(model.kind);
-      expect(englishTheory.summary).not.toBe(theory.summary);
-      expect(englishTheory.components).toHaveLength(theory.components.length);
-      expect(englishTheory.notes.length).toBeGreaterThanOrEqual(2);
+      for (const language of translatedLanguages) {
+        const localized = theoryForLanguage(model.kind, language);
+        expect(localized.summary).not.toBe(theory.summary);
+        expect(localized.components).toHaveLength(theory.components.length);
+        expect(localized.dynamics).toBeTruthy();
+        expect(localized.acceptance).toBeTruthy();
+        expect(localized.power).toBeTruthy();
+        expect(localized.notes).toHaveLength(2);
+        for (const component of theory.components) {
+          expect(hasTranslation(language, component.label)).toBe(true);
+        }
+      }
     }
   });
 });
