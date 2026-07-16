@@ -127,7 +127,7 @@ jobs:
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
           mkdir -p release-assets
-          dmg=$(find target/x86_64-apple-darwin/release/bundle/dmg target/release/bundle/dmg -type f -name '*.dmg' 2>/dev/null | head -n 1)
+          dmg=$(find target -type f -path '*/bundle/dmg/*.dmg' | head -n 1)
           test -n "$dmg"
           cp "$dmg" "release-assets/Computability_${version}_macos-x86_64.dmg"
           cp "$dmg.sig" "release-assets/Computability_${version}_macos-x86_64.dmg.sig"
@@ -164,7 +164,7 @@ jobs:
           set -euo pipefail
           version=$(node -p "require('./package.json').version")
           mkdir -p release-assets
-          dmg=$(find target/aarch64-apple-darwin/release/bundle/dmg target/release/bundle/dmg -type f -name '*.dmg' 2>/dev/null | head -n 1)
+          dmg=$(find target -type f -path '*/bundle/dmg/*.dmg' | head -n 1)
           test -n "$dmg"
           cp "$dmg" "release-assets/Computability_${version}_macos-aarch64.dmg"
           cp "$dmg.sig" "release-assets/Computability_${version}_macos-aarch64.dmg.sig"
