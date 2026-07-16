@@ -85,10 +85,10 @@ npm.cmd run build:app
 ## Quality gates
 
 The `Quality` workflow runs formatting, Clippy, Rust unit tests, TypeScript
-linting and production build on every pull request and every push to `main`.
-After a successful push to `main`, it creates an immutable annotated tag in the
-form `v<version>-main.<GitHub run number>`. This meets the requirement of a
-tag for every accepted main build without rewriting release history.
+linting and production build on every pull request and every push to `master`.
+After a successful push to `master`, it creates an immutable annotated tag in the
+form `v<version>-master.<GitHub run number>`. This meets the requirement of a
+tag for every accepted master build without rewriting release history.
 
 Dependabot reviews Cargo, npm and GitHub Actions dependencies weekly. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for local checks and model-boundary rules.
