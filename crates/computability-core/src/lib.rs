@@ -932,19 +932,17 @@ impl ContextFreeGrammar {
         }
         let entries = table
             .iter()
-            .filter_map(|((variable, lookahead), productions)| {
-                (productions.len() == 1).then(|| Ll1Entry {
-                    variable: variable.clone(),
-                    lookahead: lookahead.clone(),
-                    production: productions[0].clone(),
-                })
+            .filter(|(_, productions)| productions.len() == 1)
+            .map(|((variable, lookahead), productions)| Ll1Entry {
+                variable: variable.clone(),
+                lookahead: lookahead.clone(),
+                production: productions[0].clone(),
             })
             .collect();
         let conflicts = table
             .into_iter()
-            .filter_map(|((variable, lookahead), alternatives)| {
-                (alternatives.len() > 1).then_some(Ll1Conflict { variable, lookahead, alternatives })
-            })
+            .filter(|(_, alternatives)| alternatives.len() > 1)
+            .map(|((variable, lookahead), alternatives)| Ll1Conflict { variable, lookahead, alternatives })
             .collect();
         Ok(Ll1Analysis { entries, conflicts })
     }
