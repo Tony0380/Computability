@@ -72,7 +72,21 @@ The interface opens on a searchable catalogue of every supported model. After
 choosing one, a project can be created in the visual workspace or imported from
 JSON. State-based machines and Petri nets have an interactive canvas for
 dragging nodes, connecting transitions, editing labels and assigning semantic
-roles. Grammars and rewriting systems open in the structured JSON editor.
+roles. Every model also has a guided editor suited to its structure: productions
+for grammars, transition rows for machines, weighted rules for stochastic
+systems, arcs for Petri nets, and focused fields for regular expressions.
+
+Multiple projects can stay open at the same time in workspace tabs. Returning
+to the catalogue does not close them: the home screen shows every open workspace
+and restores it with its current model, editor and unsaved changes.
+
+### See it in action
+
+![Computability catalogue with two open workspaces](docs/screenshots/home-workspaces.png)
+
+| Visual automaton canvas                                                              | Guided grammar rule editor                                                          |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| ![DFA workspace with directional transitions](docs/screenshots/automaton-canvas.png) | ![Context-free grammar production editor](docs/screenshots/grammar-rule-editor.png) |
 
 Projects can be saved locally, reopened from the recent-project list, or
 exported as portable JSON. The execution panel runs the active definition and

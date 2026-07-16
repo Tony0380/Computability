@@ -14,6 +14,7 @@ import {
 } from "react";
 import { catalogue, metaFor, type ModelMeta } from "./catalog";
 import { examples, type Definition, type MachineKind } from "./domain";
+import { GuidedDefinitionEditor } from "./guidedEditor";
 import { detectedLanguage, I18nProvider, languages, useI18n, type Language } from "./i18n";
 import { theories } from "./theory";
 import { theoryInEnglish } from "./theoryEnglish";
@@ -21,13 +22,18 @@ import {
   definitionFromGraph,
   graphFromDefinition,
   persistProject,
+  persistWorkspaceTabs,
   projectId,
   readProjects,
+  readWorkspaceTabs,
   supportsStateCanvas,
+  syncGraphFromDefinition,
+  upsertWorkspaceTab,
   type GraphEdge,
   type GraphNode,
   type SavedProject,
   type WorkspaceGraph,
+  type WorkspaceTab,
 } from "./workspace";
 
 type Screen = "home" | "method" | "studio" | "theory";
@@ -337,6 +343,7 @@ export default function App() {
   const [graph, setGraph] = useState<WorkspaceGraph>(() => graphFromDefinition("dfa", examples.dfa));
   const [project, setProject] = useState({ id: projectId(), name: "Automa senza titolo" });
   const [projects, setProjects] = useState<SavedProject[]>(readProjects);
+  const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>(readWorkspaceTabs);
   const [theme, setTheme] = useState<ThemeName>(
     () => (localStorage.getItem("computability.theme") as ThemeName) || "paper",
   );
@@ -349,11 +356,10 @@ export default function App() {
   const [updateProgress, setUpdateProgress] = useState(0);
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState("Tutti");
-  const [view, setView] = useState<"canvas" | "json">("canvas");
+  const [view, setView] = useState<"canvas" | "rules">("canvas");
   const [tool, setTool] = useState<Tool>("select");
   const [selection, setSelection] = useState<Selection>(null);
   const [transitionFrom, setTransitionFrom] = useState<string>();
-  const [source, setSource] = useState(JSON.stringify(examples.dfa, null, 2));
   const [input, setInput] = useState("0 1 1");
   const [result, setResult] = useState<unknown>();
   const [error, setError] = useState<string>();
@@ -373,6 +379,21 @@ export default function App() {
     localStorage.setItem("computability.language", language);
     document.documentElement.lang = language;
   }, [language]);
+  useEffect(() => {
+    const tabs =
+      screen === "studio"
+        ? upsertWorkspaceTab(openTabs, {
+            ...project,
+            kind,
+            definition: definitionFromGraph(kind, definition, graph),
+            graph,
+            input,
+            view,
+            updatedAt: new Date().toISOString(),
+          })
+        : openTabs;
+    persistWorkspaceTabs(tabs);
+  }, [definition, graph, input, kind, openTabs, project, screen, view]);
   useEffect(() => {
     if (!isTauri()) return;
     void check({ timeout: 20_000 })
@@ -468,28 +489,75 @@ export default function App() {
   function startFresh() {
     const nextDefinition = structuredClone(examples[kind]);
     const nextName = `${metaFor(kind).shortName} senza titolo`;
+    const nextProject = { id: projectId(), name: nextName };
+    const nextGraph = graphFromDefinition(kind, nextDefinition);
+    const nextView = metaFor(kind).visual ? "canvas" : "rules";
     setDefinition(nextDefinition);
-    setGraph(graphFromDefinition(kind, nextDefinition));
-    setSource(JSON.stringify(nextDefinition, null, 2));
-    setProject({ id: projectId(), name: nextName });
+    setGraph(nextGraph);
+    setProject(nextProject);
+    setOpenTabs((current) =>
+      upsertWorkspaceTab(current, {
+        ...nextProject,
+        kind,
+        definition: nextDefinition,
+        graph: nextGraph,
+        input: "0 1 1",
+        view: nextView,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
     setSelection(null);
-    setView(metaFor(kind).visual ? "canvas" : "json");
+    setView(nextView);
     setScreen("studio");
     setResult(undefined);
   }
-  function openProject(saved: SavedProject) {
+  function loadWorkspace(saved: SavedProject | WorkspaceTab) {
+    if (screen === "studio") setOpenTabs((current) => upsertWorkspaceTab(current, workspaceSnapshot()));
+    const tab: WorkspaceTab = {
+      ...saved,
+      input: "input" in saved ? saved.input : "0 1 1",
+      view: "view" in saved ? saved.view : metaFor(saved.kind).visual ? "canvas" : "rules",
+    };
+    setOpenTabs((current) => upsertWorkspaceTab(current, tab));
     setKind(saved.kind);
     setDefinition(saved.definition);
     setGraph(saved.graph);
-    setSource(JSON.stringify(saved.definition, null, 2));
     setProject({ id: saved.id, name: saved.name });
     setScreen("studio");
-    setView(metaFor(saved.kind).visual ? "canvas" : "json");
+    setView("view" in saved ? saved.view : metaFor(saved.kind).visual ? "canvas" : "rules");
+    setInput("input" in saved ? saved.input : "0 1 1");
     setResult(undefined);
     setError(undefined);
+    setSelection(null);
+  }
+  function openProject(saved: SavedProject) {
+    loadWorkspace(openTabs.find((item) => item.id === saved.id) ?? saved);
+  }
+  function closeWorkspace(id: string) {
+    const next = openTabs.filter((item) => item.id !== id);
+    setOpenTabs(next);
+    if (project.id !== id) return;
+    const fallback = next.at(-1);
+    if (fallback) loadWorkspace(fallback);
+    else setScreen("home");
   }
   function currentDefinition(): Definition {
     return definitionFromGraph(kind, definition, graph);
+  }
+  function workspaceSnapshot(): WorkspaceTab {
+    return {
+      ...project,
+      kind,
+      definition: currentDefinition(),
+      graph,
+      input,
+      view,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+  function returnHome() {
+    if (screen === "studio") setOpenTabs((current) => upsertWorkspaceTab(current, workspaceSnapshot()));
+    setScreen("home");
   }
   function saveProject() {
     const nextDefinition = currentDefinition();
@@ -501,8 +569,10 @@ export default function App() {
       updatedAt: new Date().toISOString(),
     };
     setDefinition(nextDefinition);
-    setSource(JSON.stringify(nextDefinition, null, 2));
     setProjects(persistProject(saved));
+    setOpenTabs((current) =>
+      upsertWorkspaceTab(current, { ...workspaceSnapshot(), definition: nextDefinition }),
+    );
     flash("Progetto salvato sul dispositivo");
   }
   function exportProject() {
@@ -539,13 +609,27 @@ export default function App() {
         parsed.definition && typeof parsed.definition === "object" ? parsed.definition : parsed
       ) as Definition;
       const nextGraph = parsed.graph?.nodes ? parsed.graph : graphFromDefinition(nextKind, nextDefinition);
+      const nextProject = {
+        id: parsed.id ?? projectId(),
+        name: parsed.name ?? file.name.replace(/\.json$/i, ""),
+      };
       setKind(nextKind);
       setDefinition(nextDefinition);
       setGraph(nextGraph);
-      setSource(JSON.stringify(nextDefinition, null, 2));
-      setProject({ id: parsed.id ?? projectId(), name: parsed.name ?? file.name.replace(/\.json$/i, "") });
+      setProject(nextProject);
+      setOpenTabs((current) =>
+        upsertWorkspaceTab(current, {
+          ...nextProject,
+          kind: nextKind,
+          definition: nextDefinition,
+          graph: nextGraph,
+          input: "0 1 1",
+          view: metaFor(nextKind).visual ? "canvas" : "rules",
+          updatedAt: new Date().toISOString(),
+        }),
+      );
       setScreen("studio");
-      setView(metaFor(nextKind).visual ? "canvas" : "json");
+      setView(metaFor(nextKind).visual ? "canvas" : "rules");
       setError(undefined);
       setResult(undefined);
       flash("Progetto importato");
@@ -554,16 +638,10 @@ export default function App() {
     }
     event.target.value = "";
   }
-  function applyJson() {
-    try {
-      const parsed = JSON.parse(source) as Definition;
-      setDefinition(parsed);
-      setGraph(graphFromDefinition(kind, parsed));
-      setError(undefined);
-      flash("Definizione aggiornata");
-    } catch {
-      setError("La definizione JSON non è valida. Correggi gli errori prima di applicarla.");
-    }
+  function updateDefinition(next: Definition) {
+    setDefinition(next);
+    setGraph((current) => syncGraphFromDefinition(kind, next, current));
+    setError(undefined);
   }
   async function run() {
     try {
@@ -616,8 +694,7 @@ export default function App() {
       setKind(nextKind);
       setDefinition(converted);
       setGraph(graphFromDefinition(nextKind, converted));
-      setSource(JSON.stringify(converted, null, 2));
-      setView(metaFor(nextKind).visual ? "canvas" : "json");
+      setView(metaFor(nextKind).visual ? "canvas" : "rules");
       setSelection(null);
       setResult(undefined);
       setError(undefined);
@@ -814,6 +891,7 @@ export default function App() {
           {screen === "home" && (
             <Home
               projects={projects}
+              workspaces={openTabs}
               filtered={filtered}
               families={families}
               family={family}
@@ -822,6 +900,8 @@ export default function App() {
               onQuery={setQuery}
               onChoose={chooseModel}
               onOpen={openProject}
+              onOpenWorkspace={loadWorkspace}
+              onCloseWorkspace={closeWorkspace}
               onImport={() => fileInput.current?.click()}
               onTheme={() => setThemeOpen(true)}
               onTheory={(next) => {
@@ -847,6 +927,8 @@ export default function App() {
               project={project}
               setProject={setProject}
               graph={graph}
+              definition={currentDefinition()}
+              onDefinitionChange={updateDefinition}
               view={view}
               setView={setView}
               tool={tool}
@@ -859,8 +941,10 @@ export default function App() {
               setSelection={setSelection}
               selectedNode={selectedNode}
               selectedEdge={selectedEdge}
-              source={source}
-              setSource={setSource}
+              tabs={openTabs}
+              activeTabId={project.id}
+              onSwitchTab={loadWorkspace}
+              onCloseTab={closeWorkspace}
               input={input}
               setInput={setInput}
               result={result}
@@ -881,13 +965,12 @@ export default function App() {
               onRenameNode={renameNode}
               onUpdateEdge={updateEdge}
               onRemove={removeSelection}
-              onApplyJson={applyJson}
               onRun={run}
               onAction={performModelAction}
               onSave={saveProject}
               onExport={exportProject}
               onImport={() => fileInput.current?.click()}
-              onHome={() => setScreen("home")}
+              onHome={returnHome}
               onTheme={() => setThemeOpen(true)}
               onTheory={() => setScreen("theory")}
             />
@@ -922,6 +1005,7 @@ export default function App() {
 
 type HomeProps = {
   projects: SavedProject[];
+  workspaces: WorkspaceTab[];
   filtered: ModelMeta[];
   families: string[];
   family: string;
@@ -930,6 +1014,8 @@ type HomeProps = {
   onQuery: (value: string) => void;
   onChoose: (kind: MachineKind) => void;
   onOpen: (project: SavedProject) => void;
+  onOpenWorkspace: (workspace: WorkspaceTab) => void;
+  onCloseWorkspace: (id: string) => void;
   onImport: () => void;
   onTheme: () => void;
   onTheory: (kind: MachineKind) => void;
@@ -937,6 +1023,7 @@ type HomeProps = {
 };
 function Home({
   projects,
+  workspaces,
   filtered,
   families,
   family,
@@ -945,6 +1032,8 @@ function Home({
   onQuery,
   onChoose,
   onOpen,
+  onOpenWorkspace,
+  onCloseWorkspace,
   onImport,
   onTheme,
   onTheory,
@@ -995,6 +1084,41 @@ function Home({
           <span className="hero-loop">0, 1</span>
         </div>
       </section>
+      {workspaces.length > 0 && (
+        <section className="open-workspaces-section section-wrap">
+          <div className="section-title">
+            <div>
+              <p className="kicker">{t("Restano aperte sul dispositivo")}</p>
+              <h2>{t("Aree di lavoro aperte")}</h2>
+            </div>
+            <span className="workspace-count">{workspaces.length}</span>
+          </div>
+          <div className="open-workspace-row">
+            {workspaces.map((item) => {
+              const meta = metaFor(item.kind);
+              return (
+                <article className={`open-workspace-card accent-${meta.accent}`} key={item.id}>
+                  <button className="workspace-open" onClick={() => onOpenWorkspace(item)}>
+                    <span className="workspace-model-code">{meta.code}</span>
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>{t(item.view === "canvas" ? "Lavagna" : "Editor di regole")}</small>
+                    </span>
+                    <Icon name="arrow" />
+                  </button>
+                  <button
+                    className="workspace-dismiss"
+                    aria-label={`${t("Chiudi area di lavoro")}: ${item.name}`}
+                    onClick={() => onCloseWorkspace(item.id)}
+                  >
+                    <Icon name="close" size={14} />
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
       {projects.length > 0 && (
         <section className="recent-section section-wrap">
           <div className="section-title">
@@ -1176,7 +1300,7 @@ function Method({
         <p className="kicker">{t("Nuovo progetto")}</p>
         <h1>{t(model.name)}</h1>
         <p className="method-intro">
-          {t("Come vuoi iniziare? Potrai passare dalla vista visuale al JSON in qualsiasi momento.")}
+          {t("Come vuoi iniziare? Potrai passare dalla lavagna all’editor di regole in qualsiasi momento.")}
         </p>
         <div className="method-options">
           <button className="method-card primary" onClick={onCreate}>
@@ -1219,8 +1343,14 @@ type StudioProps = {
   project: { id: string; name: string };
   setProject: React.Dispatch<React.SetStateAction<{ id: string; name: string }>>;
   graph: WorkspaceGraph;
-  view: "canvas" | "json";
-  setView: (value: "canvas" | "json") => void;
+  definition: Definition;
+  onDefinitionChange: (definition: Definition) => void;
+  view: "canvas" | "rules";
+  setView: (value: "canvas" | "rules") => void;
+  tabs: WorkspaceTab[];
+  activeTabId: string;
+  onSwitchTab: (tab: WorkspaceTab) => void;
+  onCloseTab: (id: string) => void;
   tool: Tool;
   setTool: (value: Tool) => void;
   transitionFrom?: string;
@@ -1228,8 +1358,6 @@ type StudioProps = {
   setSelection: (value: Selection) => void;
   selectedNode?: GraphNode;
   selectedEdge?: GraphEdge;
-  source: string;
-  setSource: (value: string) => void;
   input: string;
   setInput: (value: string) => void;
   result?: unknown;
@@ -1248,7 +1376,6 @@ type StudioProps = {
   onRenameNode: (id: string) => void;
   onUpdateEdge: (label: string) => void;
   onRemove: () => void;
-  onApplyJson: () => void;
   onRun: () => void;
   onAction: (action: ModelAction) => void;
   onSave: () => void;
@@ -1264,8 +1391,14 @@ function Studio(props: StudioProps) {
     project,
     setProject,
     graph,
+    definition,
+    onDefinitionChange,
     view,
     setView,
+    tabs,
+    activeTabId,
+    onSwitchTab,
+    onCloseTab,
     tool,
     setTool,
     transitionFrom,
@@ -1273,8 +1406,6 @@ function Studio(props: StudioProps) {
     setSelection,
     selectedNode,
     selectedEdge,
-    source,
-    setSource,
     input,
     setInput,
     result,
@@ -1293,7 +1424,6 @@ function Studio(props: StudioProps) {
     onRenameNode,
     onUpdateEdge,
     onRemove,
-    onApplyJson,
     onRun,
     onAction,
     onSave,
@@ -1345,14 +1475,46 @@ function Studio(props: StudioProps) {
           </button>
         </div>
       </header>
+      <nav className="workspace-tabs" aria-label={t("Aree di lavoro aperte")}>
+        <button className="workspace-home-tab" onClick={onHome} aria-label={t("Torna al catalogo")}>
+          <Icon name="home" size={15} />
+        </button>
+        <div className="workspace-tab-strip">
+          {tabs.map((tab) => {
+            const tabModel = metaFor(tab.kind);
+            return (
+              <div
+                className={`workspace-tab accent-${tabModel.accent} ${tab.id === activeTabId ? "active" : ""}`}
+                key={tab.id}
+              >
+                <button className="workspace-tab-main" onClick={() => onSwitchTab(tab)}>
+                  <span>{tabModel.code}</span>
+                  <strong>{tab.id === activeTabId ? project.name : tab.name}</strong>
+                </button>
+                <button
+                  className="workspace-tab-close"
+                  aria-label={`${t("Chiudi area di lavoro")}: ${tab.name}`}
+                  onClick={() => onCloseTab(tab.id)}
+                >
+                  <Icon name="close" size={12} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <button className="workspace-new-tab" onClick={onHome}>
+          <Icon name="plus" size={15} />
+          {t("Nuova")}
+        </button>
+      </nav>
       <div className="studio-body">
         <aside className="tool-rail" aria-label={t("Strumenti del modello")}>
-          <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}>
-            <span className="cursor-icon">↖</span>
-            <small>{t("Seleziona")}</small>
-          </button>
           {model.visual && (
             <>
+              <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}>
+                <span className="cursor-icon">↖</span>
+                <small>{t("Seleziona")}</small>
+              </button>
               <button
                 className={tool === "state" ? "active" : ""}
                 onClick={() => setTool("state")}
@@ -1368,6 +1530,12 @@ function Studio(props: StudioProps) {
               </button>
             </>
           )}
+          {!model.visual && (
+            <button className="active" onClick={() => setView("rules")}>
+              <Icon name="edit" />
+              <small>{t("Regole")}</small>
+            </button>
+          )}
           <span className="rail-spacer" />
           <button onClick={onTheme}>
             <Icon name="palette" />
@@ -1379,19 +1547,21 @@ function Studio(props: StudioProps) {
             <div className="segmented">
               <button
                 className={view === "canvas" ? "active" : ""}
-                disabled={!model.visual}
+                hidden={!model.visual}
                 onClick={() => setView("canvas")}
               >
                 <Icon name="canvas" />
                 {t("Lavagna")}
               </button>
-              <button className={view === "json" ? "active" : ""} onClick={() => setView("json")}>
-                <Icon name="code" />
-                JSON
+              <button className={view === "rules" ? "active" : ""} onClick={() => setView("rules")}>
+                <Icon name="edit" />
+                {t("Regole")}
               </button>
             </div>
             <div className="workspace-help">
-              {transitionFrom ? (
+              {view === "rules" ? (
+                t("Le modifiche aggiornano subito il modello")
+              ) : transitionFrom ? (
                 <>
                   {t(
                     model.kind === "petri"
@@ -1412,11 +1582,13 @@ function Studio(props: StudioProps) {
                 t("Trascina gli stati per organizzare il modello")
               )}
             </div>
-            <div className="zoom-controls">
-              <button onClick={() => setZoom((value) => Math.max(0.65, value - 0.1))}>−</button>
-              <span>{Math.round(zoom * 100)}%</span>
-              <button onClick={() => setZoom((value) => Math.min(1.5, value + 0.1))}>+</button>
-            </div>
+            {view === "canvas" && (
+              <div className="zoom-controls">
+                <button onClick={() => setZoom((value) => Math.max(0.65, value - 0.1))}>−</button>
+                <span>{Math.round(zoom * 100)}%</span>
+                <button onClick={() => setZoom((value) => Math.min(1.5, value + 0.1))}>+</button>
+              </div>
+            )}
           </div>
           {view === "canvas" ? (
             <div
@@ -1484,24 +1656,7 @@ function Studio(props: StudioProps) {
               </div>
             </div>
           ) : (
-            <div className="json-workspace">
-              <div className="json-head">
-                <div>
-                  <p className="kicker">{t("Definizione completa")}</p>
-                  <h2>{t("JSON del modello")}</h2>
-                </div>
-                <button className="solid-button" onClick={onApplyJson}>
-                  <Icon name="check" />
-                  {t("Applica modifiche")}
-                </button>
-              </div>
-              <textarea
-                value={source}
-                onChange={(event) => setSource(event.target.value)}
-                spellCheck={false}
-                aria-label="Definizione JSON"
-              />
-            </div>
+            <GuidedDefinitionEditor model={model} definition={definition} onChange={onDefinitionChange} />
           )}
         </section>
         <aside className="inspector">

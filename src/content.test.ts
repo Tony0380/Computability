@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { catalogue } from "./catalog";
+import { examples, supportsGuidedDefinition } from "./domain";
 import { translate, type Language } from "./i18n";
 import { theories } from "./theory";
 import { theoryInEnglish } from "./theoryEnglish";
@@ -7,6 +8,9 @@ import { theoryInEnglish } from "./theoryEnglish";
 const translatedLanguages: Language[] = ["en", "fr", "de", "es", "pt"];
 
 describe("localized model catalogue", () => {
+  it("offers a guided editor for every model definition", () => {
+    for (const model of catalogue) expect(supportsGuidedDefinition(examples[model.kind])).toBe(true);
+  });
   it("translates every model title and description", () => {
     for (const language of translatedLanguages) {
       for (const model of catalogue) {
@@ -34,6 +38,13 @@ describe("localized model catalogue", () => {
     ];
     for (const language of translatedLanguages) {
       for (const control of controls) expect(translate(language, control)).not.toBe(control);
+    }
+  });
+
+  it("translates workspace tabs and the guided editor", () => {
+    const labels = ["Aree di lavoro aperte", "Editor di regole", "Chiudi area di lavoro", "Editor guidato"];
+    for (const language of translatedLanguages) {
+      for (const label of labels) expect(translate(language, label)).not.toBe(label);
     }
   });
 });
