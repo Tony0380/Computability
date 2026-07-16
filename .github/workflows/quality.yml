@@ -43,6 +43,7 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
     steps:
       - uses: actions/checkout@v4
