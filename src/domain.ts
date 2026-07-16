@@ -163,3 +163,12 @@ export const examples: Record<MachineKind, Definition> = {
 export function isFinite(definition: Definition): boolean {
   return "alphabet" in definition;
 }
+
+export function supportsGuidedDefinition(definition: Definition): boolean {
+  const supported = (value: unknown): boolean =>
+    value === null ||
+    ["string", "number", "boolean"].includes(typeof value) ||
+    (Array.isArray(value) && value.every(supported)) ||
+    (typeof value === "object" && value !== null && Object.values(value).every(supported));
+  return supported(definition);
+}

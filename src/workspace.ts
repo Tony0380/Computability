@@ -19,6 +19,13 @@ export type SavedProject = {
   updatedAt: string;
 };
 
+export type WorkspaceTab = SavedProject & {
+  input: string;
+  view: "canvas" | "rules";
+};
+
+const openWorkspacesKey = "computability.open-workspaces";
+
 const stateKinds = new Set<MachineKind>(["dfa", "nfa", "mealy", "moore", "pda", "turing", "multiTuring"]);
 export const supportsStateCanvas = (kind: MachineKind) => stateKinds.has(kind);
 
@@ -119,6 +126,19 @@ export function graphFromDefinition(kind: MachineKind, definition: Definition): 
     label: transitionLabel(kind, transition),
   }));
   return { nodes, edges };
+}
+
+export function syncGraphFromDefinition(
+  kind: MachineKind,
+  definition: Definition,
+  current: WorkspaceGraph,
+): WorkspaceGraph {
+  const next = graphFromDefinition(kind, definition);
+  const positions = new Map(current.nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
+  return {
+    nodes: next.nodes.map((node) => ({ ...node, ...(positions.get(node.id) ?? {}) })),
+    edges: next.edges,
+  };
 }
 
 const splitPair = (label: string) => label.split("/").map((part) => part.trim());
@@ -229,4 +249,22 @@ export function persistProject(project: SavedProject): SavedProject[] {
   const next = [project, ...projects].slice(0, 12);
   localStorage.setItem("computability.projects", JSON.stringify(next));
   return next;
+}
+
+export function readWorkspaceTabs(): WorkspaceTab[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(openWorkspacesKey) ?? "[]") as WorkspaceTab[];
+    return parsed.filter((item) => item.id && item.kind && item.definition && item.graph).slice(0, 12);
+  } catch {
+    return [];
+  }
+}
+
+export function persistWorkspaceTabs(tabs: WorkspaceTab[]): void {
+  localStorage.setItem(openWorkspacesKey, JSON.stringify(tabs.slice(0, 12)));
+}
+
+export function upsertWorkspaceTab(tabs: WorkspaceTab[], tab: WorkspaceTab): WorkspaceTab[] {
+  const exists = tabs.some((item) => item.id === tab.id);
+  return (exists ? tabs.map((item) => (item.id === tab.id ? tab : item)) : [...tabs, tab]).slice(-12);
 }

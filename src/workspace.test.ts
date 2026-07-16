@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { examples } from "./domain";
-import { definitionFromGraph, graphFromDefinition } from "./workspace";
+import { definitionFromGraph, graphFromDefinition, upsertWorkspaceTab, type WorkspaceTab } from "./workspace";
 
 describe("visual workspace conversion", () => {
   it("preserves DFA states, roles and transitions", () => {
@@ -42,5 +42,26 @@ describe("visual workspace conversion", () => {
       { id: "out:0:0", from: "event:complete", to: "place:done", label: "1" },
     ]);
     expect(definitionFromGraph("petri", examples.petri, graph)).toEqual(examples.petri);
+  });
+});
+
+describe("workspace tabs", () => {
+  const tab = (id: string, name: string): WorkspaceTab => ({
+    id,
+    name,
+    kind: "dfa",
+    definition: examples.dfa,
+    graph: graphFromDefinition("dfa", examples.dfa),
+    input: "0 1",
+    view: "canvas",
+    updatedAt: "2026-07-16T00:00:00.000Z",
+  });
+
+  it("keeps multiple workspaces and updates the active one in place", () => {
+    const first = upsertWorkspaceTab([], tab("a", "Automa"));
+    const two = upsertWorkspaceTab(first, tab("b", "Grammatica"));
+    const updated = upsertWorkspaceTab(two, tab("a", "Automa aggiornato"));
+    expect(updated.map((item) => item.id)).toEqual(["a", "b"]);
+    expect(updated[0].name).toBe("Automa aggiornato");
   });
 });
