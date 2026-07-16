@@ -53,8 +53,8 @@ jobs:
           name: Computability-Windows-${{ steps.release.outputs.tag || github.sha }}
           if-no-files-found: error
           path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
       - name: Publish installers to the version release
         if: github.event_name == 'workflow_run'
         env:
@@ -63,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           $files = @(
-            Get-ChildItem 'src-tauri/target/release/bundle/nsis/*.exe', 'src-tauri/target/release/bundle/msi/*.msi' -ErrorAction Stop |
+            Get-ChildItem 'target/release/bundle/nsis/*.exe', 'target/release/bundle/msi/*.msi' -ErrorAction Stop |
             ForEach-Object { $_.FullName }
           )
           gh release view $env:TAG 2>$null
