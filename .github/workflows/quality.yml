@@ -59,3 +59,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Master build $TAG" "$GITHUB_SHA"
           git push origin "$TAG"
+      - name: Start Windows packaging for the verified tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          VERSION=$(awk -F '"' '/^version = / { print $2; exit }' Cargo.toml)
+          gh workflow run release-windows.yml --ref master -f tag="v${VERSION}-master.${RUN_NUMBER}"
