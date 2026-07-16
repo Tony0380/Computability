@@ -1,4 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
@@ -143,6 +144,14 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
       </>
     ),
     close: <path d="m6 6 12 12M18 6 6 18" />,
+    minimize: <path d="M6 12h12" />,
+    maximize: <rect x="6.5" y="6.5" width="11" height="11" rx="1" />,
+    restore: (
+      <>
+        <path d="M8 8V6.5h9.5V16H16" />
+        <rect x="6.5" y="8.5" width="9" height="9" rx="1" />
+      </>
+    ),
     edit: (
       <>
         <path d="m4 20 4-1 11-11-3-3L5 16z" />
@@ -151,6 +160,112 @@ function Icon({ name, size = 20 }: { name: string; size?: number }) {
     ),
   };
   return <svg {...common}>{paths[name] ?? paths.more}</svg>;
+}
+
+function WindowTitlebar({
+  screen,
+  modelCode,
+  projectName,
+}: {
+  screen: Screen;
+  modelCode: string;
+  projectName: string;
+}) {
+  const { t } = useI18n();
+  const desktop = isTauri();
+  const [maximized, setMaximized] = useState(false);
+  const currentWindow = useMemo(() => (desktop ? getCurrentWindow() : undefined), [desktop]);
+
+  useEffect(() => {
+    if (!currentWindow) return;
+    let disposed = false;
+    let stopListening: (() => void) | undefined;
+    void currentWindow
+      .isMaximized()
+      .then(setMaximized)
+      .catch(() => undefined);
+    void currentWindow
+      .onResized(() => {
+        void currentWindow
+          .isMaximized()
+          .then(setMaximized)
+          .catch(() => undefined);
+      })
+      .then((unlisten) => {
+        if (disposed) unlisten();
+        else stopListening = unlisten;
+      });
+    return () => {
+      disposed = true;
+      stopListening?.();
+    };
+  }, [currentWindow]);
+
+  const section =
+    screen === "home"
+      ? t("Catalogo")
+      : screen === "method"
+        ? t("Scelta modello")
+        : screen === "theory"
+          ? `${t("Teoria")} · ${modelCode}`
+          : projectName;
+
+  async function toggleMaximize() {
+    if (!currentWindow) return;
+    await currentWindow.toggleMaximize();
+    setMaximized(await currentWindow.isMaximized());
+  }
+
+  return (
+    <header
+      className="window-titlebar"
+      data-tauri-drag-region
+      onDoubleClick={(event) => {
+        if ((event.target as HTMLElement).closest("button")) return;
+        void toggleMaximize();
+      }}
+    >
+      <div className="window-identity" data-tauri-drag-region>
+        <span className="window-app-mark" aria-hidden="true" data-tauri-drag-region>
+          <i />
+          <i />
+          <i />
+        </span>
+        <strong data-tauri-drag-region>Computability</strong>
+      </div>
+      <div className="window-context" data-tauri-drag-region>
+        <span aria-hidden="true" />
+        <small data-tauri-drag-region>{section}</small>
+      </div>
+      <div className="window-controls">
+        <button
+          type="button"
+          aria-label={t("Riduci a icona")}
+          title={t("Riduci a icona")}
+          onClick={() => void currentWindow?.minimize()}
+        >
+          <Icon name="minimize" size={16} />
+        </button>
+        <button
+          type="button"
+          aria-label={t(maximized ? "Ripristina" : "Ingrandisci")}
+          title={t(maximized ? "Ripristina" : "Ingrandisci")}
+          onClick={() => void toggleMaximize()}
+        >
+          <Icon name={maximized ? "restore" : "maximize"} size={15} />
+        </button>
+        <button
+          type="button"
+          className="window-close"
+          aria-label={t("Chiudi finestra")}
+          title={t("Chiudi finestra")}
+          onClick={() => void currentWindow?.close()}
+        >
+          <Icon name="close" size={16} />
+        </button>
+      </div>
+    </header>
+  );
 }
 
 function ModelGlyph({ model }: { model: ModelMeta }) {
@@ -686,117 +801,120 @@ export default function App() {
 
   return (
     <I18nProvider language={language} setLanguage={setLanguage}>
-      <div className="app-shell">
-        <input
-          ref={fileInput}
-          className="visually-hidden"
-          type="file"
-          accept="application/json,.json"
-          onChange={importFile}
-        />
-        {screen === "home" && (
-          <Home
-            projects={projects}
-            filtered={filtered}
-            families={families}
-            family={family}
-            query={query}
-            onFamily={setFamily}
-            onQuery={setQuery}
-            onChoose={chooseModel}
-            onOpen={openProject}
-            onImport={() => fileInput.current?.click()}
-            onTheme={() => setThemeOpen(true)}
-            onTheory={(next) => {
-              setKind(next);
-              setScreen("theory");
-            }}
-            onUpdates={() => void checkForUpdates()}
+      <div className="app-frame">
+        <WindowTitlebar screen={screen} modelCode={chosen.code} projectName={project.name} />
+        <div className="app-shell">
+          <input
+            ref={fileInput}
+            className="visually-hidden"
+            type="file"
+            accept="application/json,.json"
+            onChange={importFile}
           />
-        )}
-        {screen === "method" && (
-          <Method
-            model={chosen}
-            onBack={() => setScreen("home")}
-            onCreate={startFresh}
-            onImport={() => fileInput.current?.click()}
-            onTheme={() => setThemeOpen(true)}
-            onTheory={() => setScreen("theory")}
-          />
-        )}
-        {screen === "studio" && (
-          <Studio
-            model={chosen}
-            project={project}
-            setProject={setProject}
-            graph={graph}
-            view={view}
-            setView={setView}
-            tool={tool}
-            setTool={(next) => {
-              setTool(next);
-              setTransitionFrom(undefined);
-            }}
-            transitionFrom={transitionFrom}
-            selection={selection}
-            setSelection={setSelection}
-            selectedNode={selectedNode}
-            selectedEdge={selectedEdge}
-            source={source}
-            setSource={setSource}
-            input={input}
-            setInput={setInput}
-            result={result}
-            error={error}
-            zoom={zoom}
-            setZoom={setZoom}
-            sidePanel={sidePanel}
-            setSidePanel={setSidePanel}
-            canvasRef={canvasRef}
-            onCanvasClick={handleCanvasClick}
-            onDrop={handleDrop}
-            onPointerDown={pointerDown}
-            onPointerMove={pointerMove}
-            onPointerUp={() => {
-              dragRef.current = null;
-            }}
-            onUpdateNode={updateNode}
-            onRenameNode={renameNode}
-            onUpdateEdge={updateEdge}
-            onRemove={removeSelection}
-            onApplyJson={applyJson}
-            onRun={run}
-            onAction={performModelAction}
-            onSave={saveProject}
-            onExport={exportProject}
-            onImport={() => fileInput.current?.click()}
-            onHome={() => setScreen("home")}
-            onTheme={() => setThemeOpen(true)}
-            onTheory={() => setScreen("theory")}
-          />
-        )}
-        {screen === "theory" && (
-          <TheoryPage model={chosen} onBack={() => setScreen("home")} onOpen={() => startFresh()} />
-        )}
-        {themeOpen && <ThemeDialog theme={theme} onTheme={setTheme} onClose={() => setThemeOpen(false)} />}
-        {updateOpen && (
-          <UpdateDialog
-            status={updateStatus}
-            update={availableUpdate}
-            progress={updateProgress}
-            onCheck={() => void checkForUpdates()}
-            onInstall={() => void installUpdate()}
-            onClose={() => setUpdateOpen(false)}
-          />
-        )}
-        {notice && (
-          <div className="toast">
-            <span>
-              <Icon name="check" size={16} />
-            </span>
-            {notice}
-          </div>
-        )}
+          {screen === "home" && (
+            <Home
+              projects={projects}
+              filtered={filtered}
+              families={families}
+              family={family}
+              query={query}
+              onFamily={setFamily}
+              onQuery={setQuery}
+              onChoose={chooseModel}
+              onOpen={openProject}
+              onImport={() => fileInput.current?.click()}
+              onTheme={() => setThemeOpen(true)}
+              onTheory={(next) => {
+                setKind(next);
+                setScreen("theory");
+              }}
+              onUpdates={() => void checkForUpdates()}
+            />
+          )}
+          {screen === "method" && (
+            <Method
+              model={chosen}
+              onBack={() => setScreen("home")}
+              onCreate={startFresh}
+              onImport={() => fileInput.current?.click()}
+              onTheme={() => setThemeOpen(true)}
+              onTheory={() => setScreen("theory")}
+            />
+          )}
+          {screen === "studio" && (
+            <Studio
+              model={chosen}
+              project={project}
+              setProject={setProject}
+              graph={graph}
+              view={view}
+              setView={setView}
+              tool={tool}
+              setTool={(next) => {
+                setTool(next);
+                setTransitionFrom(undefined);
+              }}
+              transitionFrom={transitionFrom}
+              selection={selection}
+              setSelection={setSelection}
+              selectedNode={selectedNode}
+              selectedEdge={selectedEdge}
+              source={source}
+              setSource={setSource}
+              input={input}
+              setInput={setInput}
+              result={result}
+              error={error}
+              zoom={zoom}
+              setZoom={setZoom}
+              sidePanel={sidePanel}
+              setSidePanel={setSidePanel}
+              canvasRef={canvasRef}
+              onCanvasClick={handleCanvasClick}
+              onDrop={handleDrop}
+              onPointerDown={pointerDown}
+              onPointerMove={pointerMove}
+              onPointerUp={() => {
+                dragRef.current = null;
+              }}
+              onUpdateNode={updateNode}
+              onRenameNode={renameNode}
+              onUpdateEdge={updateEdge}
+              onRemove={removeSelection}
+              onApplyJson={applyJson}
+              onRun={run}
+              onAction={performModelAction}
+              onSave={saveProject}
+              onExport={exportProject}
+              onImport={() => fileInput.current?.click()}
+              onHome={() => setScreen("home")}
+              onTheme={() => setThemeOpen(true)}
+              onTheory={() => setScreen("theory")}
+            />
+          )}
+          {screen === "theory" && (
+            <TheoryPage model={chosen} onBack={() => setScreen("home")} onOpen={() => startFresh()} />
+          )}
+          {themeOpen && <ThemeDialog theme={theme} onTheme={setTheme} onClose={() => setThemeOpen(false)} />}
+          {updateOpen && (
+            <UpdateDialog
+              status={updateStatus}
+              update={availableUpdate}
+              progress={updateProgress}
+              onCheck={() => void checkForUpdates()}
+              onInstall={() => void installUpdate()}
+              onClose={() => setUpdateOpen(false)}
+            />
+          )}
+          {notice && (
+            <div className="toast">
+              <span>
+                <Icon name="check" size={16} />
+              </span>
+              {notice}
+            </div>
+          )}
+        </div>
       </div>
     </I18nProvider>
   );

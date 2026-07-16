@@ -22,6 +22,20 @@ describe("localized model catalogue", () => {
       expect(translate(language, "Scarica e aggiorna")).not.toBe("Scarica e aggiorna");
     }
   });
+
+  it("translates every custom window control", () => {
+    const controls = [
+      "Catalogo",
+      "Scelta modello",
+      "Riduci a icona",
+      "Ingrandisci",
+      "Ripristina",
+      "Chiudi finestra",
+    ];
+    for (const language of translatedLanguages) {
+      for (const control of controls) expect(translate(language, control)).not.toBe(control);
+    }
+  });
 });
 
 describe("theory catalogue", () => {

@@ -56,3 +56,17 @@ The visual catalogue and workspace share one localization provider. Formal
 theory is stored separately from machine definitions so educational copy cannot
 alter simulation semantics. Italian and English theory records preserve the
 same tuples and formula fields.
+
+## Window chrome and visual assets
+
+The desktop window is intentionally undecorated so the React shell can provide
+one title bar across Windows versions and every application theme. Window
+operations still go through Tauri's narrowly scoped permissions: drag,
+minimize, maximize or restore, and close. The same title bar remains visible in
+the browser preview, where its controls are inert, so layout and accessibility
+can be reviewed without a native runtime.
+
+Window chrome and scrollbars derive their colors from the shared theme tokens
+in `src/styles.css`. The canonical application icon is
+`src-tauri/icons/icon.svg`; run `npm exec tauri icon src-tauri/icons/icon.svg`
+after changing it to regenerate every Windows, macOS, iOS, and Android asset.
