@@ -21,20 +21,20 @@ The target catalogue covers the principal models used in computability and
 formal-language courses, extended with place/transition Petri nets. “Implemented” means the Rust core has a defined,
 serializable model and an execution algorithm reachable from the interface.
 
-| Family | Model | Core | UI |
-| --- | --- | --- | --- |
-| Finite automata | DFA | Implemented | Implemented |
-| Finite automata | NFA with epsilon transitions | Implemented | Implemented |
-| Finite-state transducers | Mealy and Moore machines | Implemented | Implemented |
-| Pushdown automata | Nondeterministic PDA | Implemented | Implemented |
-| Turing machines | Nondeterministic single-tape TM | Implemented | Implemented |
-| Turing machines | Deterministic multi-tape TM | Implemented | Implemented |
-| Grammars | Regular grammar | Implemented | Implemented |
-| Grammars | Context-free grammar, bounded leftmost recognition | Implemented | Implemented |
-| Grammars | Unrestricted grammar, bounded rewriting | Implemented | Implemented |
-| Regular languages | Regular expression to epsilon-NFA matching | Implemented | Implemented |
-| Formal systems | Deterministic, contextual and stochastic L-systems | Implemented | Implemented |
-| Petri nets | Place/transition nets | Implemented | Implemented |
+| Family                   | Model                                              | Core        | UI          |
+| ------------------------ | -------------------------------------------------- | ----------- | ----------- |
+| Finite automata          | DFA                                                | Implemented | Implemented |
+| Finite automata          | NFA with epsilon transitions                       | Implemented | Implemented |
+| Finite-state transducers | Mealy and Moore machines                           | Implemented | Implemented |
+| Pushdown automata        | Nondeterministic PDA                               | Implemented | Implemented |
+| Turing machines          | Nondeterministic single-tape TM                    | Implemented | Implemented |
+| Turing machines          | Deterministic multi-tape TM                        | Implemented | Implemented |
+| Grammars                 | Regular grammar                                    | Implemented | Implemented |
+| Grammars                 | Context-free grammar, bounded leftmost recognition | Implemented | Implemented |
+| Grammars                 | Unrestricted grammar, bounded rewriting            | Implemented | Implemented |
+| Regular languages        | Regular expression to epsilon-NFA matching         | Implemented | Implemented |
+| Formal systems           | Deterministic, contextual and stochastic L-systems | Implemented | Implemented |
+| Petri nets               | Place/transition nets                              | Implemented | Implemented |
 
 Additional conversion wizards, SLR parser-table construction and pumping-lemma
 exercises are a separate teaching-tools track. They are not represented as
@@ -65,6 +65,23 @@ computability-core (Rust)
 The core has no UI or file-system dependency. Models are objects with explicit
 state and invariants; executable models implement the `Machine` trait. This
 makes the same algorithms testable independently of desktop rendering.
+
+## Desktop experience
+
+The interface opens on a searchable catalogue of every supported model. After
+choosing one, a project can be created in the visual workspace or imported from
+JSON. State-based machines and Petri nets have an interactive canvas for
+dragging nodes, connecting transitions, editing labels and assigning semantic
+roles. Grammars and rewriting systems open in the structured JSON editor.
+
+Projects can be saved locally, reopened from the recent-project list, or
+exported as portable JSON. The execution panel runs the active definition and
+keeps access to minimisation, determinisation, model conversions, CYK and LL(1)
+tools. Four accessible themes are bundled, as is the Montserrat typeface, so
+the interface does not depend on fonts installed on the user's computer.
+
+On Windows the executable uses the graphical subsystem in both development and
+release builds, preventing a terminal window from opening behind the app.
 
 ## Install on Windows
 

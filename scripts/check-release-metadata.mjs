@@ -15,7 +15,9 @@ if (!cargoVersion || !packageVersion || !tauriVersion) {
 }
 
 if (new Set([cargoVersion, packageVersion, tauriVersion]).size !== 1) {
-  throw new Error(`Release versions differ: Cargo=${cargoVersion}, npm=${packageVersion}, Tauri=${tauriVersion}.`);
+  throw new Error(
+    `Release versions differ: Cargo=${cargoVersion}, npm=${packageVersion}, Tauri=${tauriVersion}.`,
+  );
 }
 
 console.log(`Release metadata verified for v${cargoVersion}.`);
