@@ -1,114 +1,1654 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useMemo, useState } from "react";
-import { examples, type Definition, type MachineKind, isFinite } from "./domain";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { catalogue, metaFor, type ModelMeta } from "./catalog";
+import { examples, type Definition, type MachineKind } from "./domain";
+import {
+  definitionFromGraph,
+  graphFromDefinition,
+  persistProject,
+  projectId,
+  readProjects,
+  supportsStateCanvas,
+  type GraphEdge,
+  type GraphNode,
+  type SavedProject,
+  type WorkspaceGraph,
+} from "./workspace";
 
-const labels: Record<MachineKind, { name: string; subtitle: string }> = {
-  dfa: { name: "Deterministic finite automaton", subtitle: "One state, one valid move for each symbol." },
-  nfa: { name: "Nondeterministic finite automaton", subtitle: "Explore branching paths and epsilon transitions." },
-  mealy: { name: "Mealy transducer", subtitle: "Emit a symbol while each transition is traversed." },
-  moore: { name: "Moore transducer", subtitle: "Read the output assigned to every visited state." },
-  pda: { name: "Pushdown automaton", subtitle: "Explore input, state and stack configurations." },
-  turing: { name: "Turing machine", subtitle: "Run an explicit tape, head, and transition function." },
-  multiTuring: { name: "Multi-tape Turing machine", subtitle: "Coordinate several explicit tapes and heads." },
-  regularGrammar: { name: "Regular grammar", subtitle: "Recognize words through a right-linear grammar." },
-  cfg: { name: "Context-free grammar", subtitle: "Inspect a bounded leftmost derivation." },
-  unrestrictedGrammar: { name: "Unrestricted grammar", subtitle: "Explore a bounded general derivation." },
-  regex: { name: "Regular expression", subtitle: "Compile an expression to an epsilon-NFA and run it." },
-  lsystem: { name: "L-system", subtitle: "Apply every rewrite simultaneously by generation." },
-  contextualLsystem: { name: "Contextual L-system", subtitle: "Rewrite a symbol only when its neighbouring context matches." },
-  stochasticLsystem: { name: "Stochastic L-system", subtitle: "Choose weighted rewrites from a reproducible seed." },
-  petri: { name: "Petri net", subtitle: "Follow tokens through concurrent places and transitions." },
+type Screen = "home" | "method" | "studio";
+type ThemeName = "paper" | "midnight" | "clay" | "contrast";
+type Tool = "select" | "state" | "transition";
+type Selection = { type: "node" | "edge"; id: string } | null;
+type ModelAction =
+  "minimize_dfa" | "determinize" | "regex_to_nfa" | "regular_grammar_to_nfa" | "cfg_to_pda" | "cyk" | "ll1";
+
+const themes: { id: ThemeName; name: string; swatches: string[] }[] = [
+  { id: "paper", name: "Carta tecnica", swatches: ["#f4f5ef", "#4536d6", "#f2c94c"] },
+  { id: "midnight", name: "Notte polare", swatches: ["#11151d", "#72a7ff", "#9ee6a8"] },
+  { id: "clay", name: "Argilla", swatches: ["#f5eee8", "#b4472f", "#315f55"] },
+  { id: "contrast", name: "Alto contrasto", swatches: ["#ffffff", "#111111", "#0068ff"] },
+];
+
+function Icon({ name, size = 20 }: { name: string; size?: number }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+  const paths: Record<string, React.ReactNode> = {
+    home: (
+      <>
+        <path d="m3 11 9-8 9 8" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6" />
+      </>
+    ),
+    folder: (
+      <>
+        <path d="M3 6.5h7l2 2h9v10H3z" />
+        <path d="M3 6.5v-2h7l2 2" />
+      </>
+    ),
+    plus: (
+      <>
+        <path d="M12 5v14M5 12h14" />
+      </>
+    ),
+    upload: (
+      <>
+        <path d="M12 16V4m0 0L7 9m5-5 5 5" />
+        <path d="M4 15v5h16v-5" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M12 4v12m0 0 5-5m-5 5-5-5" />
+        <path d="M4 19h16" />
+      </>
+    ),
+    save: (
+      <>
+        <path d="M5 3h12l2 2v16H5z" />
+        <path d="M8 3v6h8V3M8 21v-7h8v7" />
+      </>
+    ),
+    play: <path d="m8 5 11 7-11 7z" />,
+    code: (
+      <>
+        <path d="m8 8-4 4 4 4m8-8 4 4-4 4M14 5l-4 14" />
+      </>
+    ),
+    canvas: (
+      <>
+        <circle cx="6" cy="12" r="3" />
+        <circle cx="18" cy="6" r="3" />
+        <circle cx="18" cy="18" r="3" />
+        <path d="m9 11 6-4m-6 6 6 4" />
+      </>
+    ),
+    arrow: (
+      <>
+        <path d="M5 12h14m-5-5 5 5-5 5" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m16 16 5 5" />
+      </>
+    ),
+    trash: (
+      <>
+        <path d="M4 7h16M9 3h6l1 4H8zM7 7l1 14h8l1-14" />
+      </>
+    ),
+    check: <path d="m5 12 4 4L19 6" />,
+    more: (
+      <>
+        <circle cx="5" cy="12" r="1" fill="currentColor" />
+        <circle cx="12" cy="12" r="1" fill="currentColor" />
+        <circle cx="19" cy="12" r="1" fill="currentColor" />
+      </>
+    ),
+    back: (
+      <>
+        <path d="M20 12H5m6-6-6 6 6 6" />
+      </>
+    ),
+    palette: (
+      <>
+        <path d="M12 3a9 9 0 1 0 0 18h1.5a2 2 0 0 0 0-4H12a2 2 0 0 1 0-4h5a4 4 0 0 0 4-4c0-3-4-6-9-6Z" />
+        <circle cx="7.5" cy="10" r=".8" fill="currentColor" />
+        <circle cx="9.5" cy="6.5" r=".8" fill="currentColor" />
+        <circle cx="14" cy="6" r=".8" fill="currentColor" />
+      </>
+    ),
+    close: <path d="m6 6 12 12M18 6 6 18" />,
+    edit: (
+      <>
+        <path d="m4 20 4-1 11-11-3-3L5 16z" />
+        <path d="m14 7 3 3" />
+      </>
+    ),
+  };
+  return <svg {...common}>{paths[name] ?? paths.more}</svg>;
+}
+
+function ModelGlyph({ model }: { model: ModelMeta }) {
+  if (model.glyph === "tape")
+    return (
+      <div className="model-glyph tape-glyph">
+        <i />
+        <i />
+        <i />
+        <span>↔</span>
+      </div>
+    );
+  if (model.glyph === "stack")
+    return (
+      <div className="model-glyph stack-glyph">
+        <i />
+        <i />
+        <i />
+      </div>
+    );
+  if (model.glyph === "grammar")
+    return (
+      <div className="model-glyph grammar-glyph">
+        S <span>→</span> aB
+      </div>
+    );
+  if (model.glyph === "tokens")
+    return (
+      <div className="model-glyph token-glyph">
+        <i />
+        <span />
+        <i />
+      </div>
+    );
+  return (
+    <div className="model-glyph node-glyph">
+      <i />
+      <span />
+      <i />
+      {model.glyph === "branch" && <b />}
+    </div>
+  );
+}
+
+const tokenise = (value: string) => (value.trim() ? value.trim().split(/\s+/) : []);
+const requestKinds: Record<MachineKind, string> = {
+  dfa: "dfa",
+  nfa: "nfa",
+  mealy: "mealy",
+  moore: "moore",
+  pda: "pda",
+  turing: "turing",
+  multiTuring: "multi_turing",
+  regularGrammar: "regular_grammar",
+  cfg: "cfg",
+  unrestrictedGrammar: "unrestricted_grammar",
+  regex: "regex",
+  lsystem: "lsystem",
+  contextualLsystem: "contextual_lsystem",
+  stochasticLsystem: "stochastic_lsystem",
+  petri: "petri",
 };
 
-function tokenize(value: string): string[] { return value.trim() ? value.trim().split(/\s+/) : []; }
-
 export default function App() {
+  const [screen, setScreen] = useState<Screen>("home");
   const [kind, setKind] = useState<MachineKind>("dfa");
   const [definition, setDefinition] = useState<Definition>(examples.dfa);
+  const [graph, setGraph] = useState<WorkspaceGraph>(() => graphFromDefinition("dfa", examples.dfa));
+  const [project, setProject] = useState({ id: projectId(), name: "Automa senza titolo" });
+  const [projects, setProjects] = useState<SavedProject[]>(readProjects);
+  const [theme, setTheme] = useState<ThemeName>(
+    () => (localStorage.getItem("computability.theme") as ThemeName) || "paper",
+  );
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [family, setFamily] = useState("Tutti");
+  const [view, setView] = useState<"canvas" | "json">("canvas");
+  const [tool, setTool] = useState<Tool>("select");
+  const [selection, setSelection] = useState<Selection>(null);
+  const [transitionFrom, setTransitionFrom] = useState<string>();
+  const [source, setSource] = useState(JSON.stringify(examples.dfa, null, 2));
   const [input, setInput] = useState("0 1 1");
   const [result, setResult] = useState<unknown>();
   const [error, setError] = useState<string>();
-  const [source, setSource] = useState(JSON.stringify(examples.dfa, null, 2));
-  const current = labels[kind];
-  const inputHint = useMemo(() => {
-    if (kind === "petri") return "Transition sequence, e.g. complete";
-    if (kind === "multiTuring") return "One tape per side of |, e.g. 1 1 |";
-    if (["lsystem", "contextualLsystem", "stochasticLsystem"].includes(kind)) return "Generations to render";
-    return "Input symbols, separated by spaces";
-  }, [kind]);
+  const [notice, setNotice] = useState<string>();
+  const [zoom, setZoom] = useState(1);
+  const [sidePanel, setSidePanel] = useState<"properties" | "run">("properties");
+  const fileInput = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const chosen = metaFor(kind);
 
-  function choose(next: MachineKind) {
-    setKind(next); setDefinition(examples[next]); setSource(JSON.stringify(examples[next], null, 2)); setResult(undefined); setError(undefined);
-    setInput(next === "petri" ? "complete" : next === "turing" ? "1 1 1" : next === "multiTuring" ? "1 1 |" : ["lsystem", "contextualLsystem", "stochasticLsystem"].includes(next) ? "4" : next === "dfa" ? "0 1 1" : next === "regex" ? "a b c" : next === "cfg" ? "a b" : "a b b");
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("computability.theme", theme);
+  }, [theme]);
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [screen]);
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && screen === "studio") {
+        event.preventDefault();
+        void run();
+        return;
+      }
+      if (
+        (event.key === "Delete" || event.key === "Backspace") &&
+        selection &&
+        !(event.target instanceof HTMLInputElement) &&
+        !(event.target instanceof HTMLTextAreaElement)
+      )
+        removeSelection();
+      if (event.key === "Escape") {
+        setTransitionFrom(undefined);
+        setTool("select");
+        setSelection(null);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
+  const families = useMemo(() => ["Tutti", ...new Set(catalogue.map((item) => item.family))], []);
+  const filtered = useMemo(
+    () =>
+      catalogue.filter(
+        (item) =>
+          (family === "Tutti" || item.family === family) &&
+          `${item.name} ${item.code} ${item.description}`.toLowerCase().includes(query.toLowerCase()),
+      ),
+    [family, query],
+  );
+  const selectedNode =
+    selection?.type === "node" ? graph.nodes.find((node) => node.id === selection.id) : undefined;
+  const selectedEdge =
+    selection?.type === "edge" ? graph.edges.find((edge) => edge.id === selection.id) : undefined;
+
+  function flash(message: string) {
+    setNotice(message);
+    window.setTimeout(() => setNotice(undefined), 2600);
   }
-  function applyDefinition() {
-    try { setDefinition(JSON.parse(source) as Definition); setError(undefined); }
-    catch { setError("The definition is not valid JSON. Correct it before running the machine."); }
+  function chooseModel(next: MachineKind) {
+    setKind(next);
+    setScreen("method");
+    setError(undefined);
   }
-  async function convert() {
-    const conversion = kind === "nfa" ? "determinize" : kind === "dfa" ? "minimize_dfa" : kind === "regex" ? "regex_to_nfa" : "regular_grammar_to_nfa";
+  function startFresh() {
+    const nextDefinition = structuredClone(examples[kind]);
+    const nextName = `${metaFor(kind).shortName} senza titolo`;
+    setDefinition(nextDefinition);
+    setGraph(graphFromDefinition(kind, nextDefinition));
+    setSource(JSON.stringify(nextDefinition, null, 2));
+    setProject({ id: projectId(), name: nextName });
+    setSelection(null);
+    setView(metaFor(kind).visual ? "canvas" : "json");
+    setScreen("studio");
+    setResult(undefined);
+  }
+  function openProject(saved: SavedProject) {
+    setKind(saved.kind);
+    setDefinition(saved.definition);
+    setGraph(saved.graph);
+    setSource(JSON.stringify(saved.definition, null, 2));
+    setProject({ id: saved.id, name: saved.name });
+    setScreen("studio");
+    setView(metaFor(saved.kind).visual ? "canvas" : "json");
+    setResult(undefined);
+    setError(undefined);
+  }
+  function currentDefinition(): Definition {
+    return definitionFromGraph(kind, definition, graph);
+  }
+  function saveProject() {
+    const nextDefinition = currentDefinition();
+    const saved: SavedProject = {
+      ...project,
+      kind,
+      definition: nextDefinition,
+      graph,
+      updatedAt: new Date().toISOString(),
+    };
+    setDefinition(nextDefinition);
+    setSource(JSON.stringify(nextDefinition, null, 2));
+    setProjects(persistProject(saved));
+    flash("Progetto salvato sul dispositivo");
+  }
+  function exportProject() {
+    const payload: SavedProject = {
+      ...project,
+      kind,
+      definition: currentDefinition(),
+      graph,
+      updatedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${
+      project.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gi, "-")
+        .replace(/^-|-$/g, "") || "computability"
+    }.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    flash("File JSON esportato");
+  }
+  async function importFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text()) as Partial<SavedProject> & Definition;
+      const nextKind = (
+        typeof parsed.kind === "string" && parsed.kind in examples ? parsed.kind : kind
+      ) as MachineKind;
+      const nextDefinition = (
+        parsed.definition && typeof parsed.definition === "object" ? parsed.definition : parsed
+      ) as Definition;
+      const nextGraph = parsed.graph?.nodes ? parsed.graph : graphFromDefinition(nextKind, nextDefinition);
+      setKind(nextKind);
+      setDefinition(nextDefinition);
+      setGraph(nextGraph);
+      setSource(JSON.stringify(nextDefinition, null, 2));
+      setProject({ id: parsed.id ?? projectId(), name: parsed.name ?? file.name.replace(/\.json$/i, "") });
+      setScreen("studio");
+      setView(metaFor(nextKind).visual ? "canvas" : "json");
+      setError(undefined);
+      setResult(undefined);
+      flash("Progetto importato");
+    } catch {
+      setError("Il file non contiene JSON valido. Controlla il contenuto e riprova.");
+    }
+    event.target.value = "";
+  }
+  function applyJson() {
     try {
       const parsed = JSON.parse(source) as Definition;
-      const converted = await invoke<Definition>("transform", { request: { kind: conversion, definition: parsed } });
-      const nextKind: MachineKind = kind === "dfa" ? "dfa" : "nfa";
-      setKind(nextKind); setDefinition(converted); setSource(JSON.stringify(converted, null, 2)); setResult(undefined); setError(undefined);
-    } catch (cause) { setError(String(cause)); }
-  }
-  async function convertCfgToPda() {
-    try {
-      const parsed = JSON.parse(source) as Definition;
-      const converted = await invoke<Definition>("cfg_to_pda", { grammar: parsed });
-      setKind("pda"); setDefinition(converted); setSource(JSON.stringify(converted, null, 2)); setResult(undefined); setError(undefined);
-    } catch (cause) { setError(String(cause)); }
+      setDefinition(parsed);
+      setGraph(graphFromDefinition(kind, parsed));
+      setError(undefined);
+      flash("Definizione aggiornata");
+    } catch {
+      setError("La definizione JSON non è valida. Correggi gli errori prima di applicarla.");
+    }
   }
   async function run() {
     try {
-      applyDefinition();
-      const parsed = JSON.parse(source) as Definition;
-      const requestKind: Record<MachineKind, string> = { dfa: "dfa", nfa: "nfa", mealy: "mealy", moore: "moore", pda: "pda", turing: "turing", multiTuring: "multi_turing", regularGrammar: "regular_grammar", cfg: "cfg", unrestrictedGrammar: "unrestricted_grammar", regex: "regex", lsystem: "lsystem", contextualLsystem: "contextual_lsystem", stochasticLsystem: "stochastic_lsystem", petri: "petri" };
-      const definition = kind === "turing" || kind === "multiTuring" ? { machine: parsed, max_steps: 10_000 } : ["lsystem", "contextualLsystem", "stochasticLsystem"].includes(kind) ? { system: parsed, generations: Number(input) || 0 } : parsed;
-      const tapeInputs = kind === "multiTuring" ? input.split("|").map(tokenize) : undefined;
-      const response = await invoke("simulate", { request: { kind: requestKind[kind], definition }, input: tokenize(input), tapeInputs });
-      setResult(response); setError(undefined);
-    } catch (cause) { setError(String(cause)); setResult(undefined); }
+      const parsed = currentDefinition();
+      const wrapped =
+        kind === "turing" || kind === "multiTuring"
+          ? { machine: parsed, max_steps: 10_000 }
+          : ["lsystem", "contextualLsystem", "stochasticLsystem"].includes(kind)
+            ? { system: parsed, generations: Number(input) || 0 }
+            : parsed;
+      const response = await invoke("simulate", {
+        request: { kind: requestKinds[kind], definition: wrapped },
+        input: tokenise(input),
+        tapeInputs: kind === "multiTuring" ? input.split("|").map(tokenise) : undefined,
+      });
+      setResult(response);
+      setError(undefined);
+      setSidePanel("run");
+    } catch (cause) {
+      setError(String(cause));
+      setResult(undefined);
+      setSidePanel("run");
+    }
   }
-  async function runCyk() {
+  async function performModelAction(action: ModelAction) {
     try {
-      const parsed = JSON.parse(source) as Definition;
-      const response = await invoke("simulate", { request: { kind: "cyk", definition: parsed }, input: tokenize(input) });
-      setResult(response); setError(undefined);
-    } catch (cause) { setError(String(cause)); setResult(undefined); }
+      const parsed = currentDefinition();
+      if (action === "cyk" || action === "ll1") {
+        const response = await invoke("simulate", {
+          request: { kind: action, definition: parsed },
+          input: tokenise(input),
+        });
+        setResult(response);
+        setError(undefined);
+        setSidePanel("run");
+        return;
+      }
+      const converted =
+        action === "cfg_to_pda"
+          ? await invoke<Definition>("cfg_to_pda", { grammar: parsed })
+          : await invoke<Definition>("transform", { request: { kind: action, definition: parsed } });
+      const nextKind: MachineKind =
+        action === "cfg_to_pda"
+          ? "pda"
+          : action === "determinize"
+            ? "dfa"
+            : action === "minimize_dfa"
+              ? "dfa"
+              : "nfa";
+      setKind(nextKind);
+      setDefinition(converted);
+      setGraph(graphFromDefinition(nextKind, converted));
+      setSource(JSON.stringify(converted, null, 2));
+      setView(metaFor(nextKind).visual ? "canvas" : "json");
+      setSelection(null);
+      setResult(undefined);
+      setError(undefined);
+      flash(`Modello convertito in ${metaFor(nextKind).shortName}`);
+    } catch (cause) {
+      setError(String(cause));
+      setSidePanel("run");
+    }
   }
-  async function runLl1() {
-    try {
-      const parsed = JSON.parse(source) as Definition;
-      const response = await invoke("simulate", { request: { kind: "ll1", definition: parsed }, input: tokenize(input) });
-      setResult(response); setError(undefined);
-    } catch (cause) { setError(String(cause)); setResult(undefined); }
+  function canvasPoint(clientX: number, clientY: number) {
+    const canvas = canvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
+    return {
+      x: (clientX - (rect?.left ?? 0) + (canvas?.scrollLeft ?? 0)) / zoom,
+      y: (clientY - (rect?.top ?? 0) + (canvas?.scrollTop ?? 0)) / zoom,
+    };
   }
-  const finite = isFinite(definition);
+  function addNodeAt(x: number, y: number) {
+    if (kind === "petri") {
+      let index = graph.nodes.filter((node) => node.role === "place").length;
+      let label = `p${index}`;
+      while (graph.nodes.some((node) => node.label === label)) label = `p${++index}`;
+      const id = `place:${label}`;
+      const node: GraphNode = { id, label, x, y, role: "place", tokens: 0 };
+      setGraph((current) => ({ ...current, nodes: [...current.nodes, node] }));
+      setSelection({ type: "node", id });
+      setTool("select");
+      return;
+    }
+    if (!supportsStateCanvas(kind)) return;
+    let index = graph.nodes.length;
+    let id = `q${index}`;
+    while (graph.nodes.some((node) => node.id === id)) id = `q${++index}`;
+    const node: GraphNode = { id, label: id, x, y, role: graph.nodes.length ? "normal" : "start" };
+    setGraph((current) => ({ ...current, nodes: [...current.nodes, node] }));
+    setSelection({ type: "node", id });
+    setTool("select");
+  }
+  function handleCanvasClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (
+      event.target !== event.currentTarget &&
+      !(event.target as HTMLElement).classList.contains("canvas-grid")
+    )
+      return;
+    setSelection(null);
+    if (tool === "state") {
+      const point = canvasPoint(event.clientX, event.clientY);
+      addNodeAt(point.x, point.y);
+    }
+  }
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const point = canvasPoint(event.clientX, event.clientY);
+    addNodeAt(point.x, point.y);
+  }
+  function pointerDown(event: ReactPointerEvent, node: GraphNode) {
+    event.stopPropagation();
+    if (tool === "transition") {
+      if (!transitionFrom) {
+        setTransitionFrom(node.id);
+        setSelection({ type: "node", id: node.id });
+      } else {
+        if (kind === "petri") {
+          const source = graph.nodes.find((item) => item.id === transitionFrom);
+          if (source?.role !== "place" || node.role !== "place") return;
+          let index = graph.nodes.filter((item) => item.role === "event").length;
+          let label = `t${index}`;
+          while (graph.nodes.some((item) => item.label === label)) label = `t${++index}`;
+          const eventId = `event:${label}`;
+          const eventNode: GraphNode = {
+            id: eventId,
+            label,
+            role: "event",
+            x: (source.x + node.x) / 2,
+            y: (source.y + node.y) / 2 - 42,
+          };
+          const stamp = Date.now();
+          const firstEdge: GraphEdge = { id: `edge:${stamp}:in`, from: source.id, to: eventId, label: "1" };
+          const secondEdge: GraphEdge = { id: `edge:${stamp}:out`, from: eventId, to: node.id, label: "1" };
+          setGraph((current) => ({
+            nodes: [...current.nodes, eventNode],
+            edges: [...current.edges, firstEdge, secondEdge],
+          }));
+          setTransitionFrom(undefined);
+          setSelection({ type: "node", id: eventId });
+          setTool("select");
+          return;
+        }
+        const id = `edge:${Date.now()}`;
+        const edge: GraphEdge = {
+          id,
+          from: transitionFrom,
+          to: node.id,
+          label:
+            kind === "turing"
+              ? "□ → □, Stay"
+              : kind === "mealy"
+                ? "a / x"
+                : kind === "pda"
+                  ? "ε, ε → ε"
+                  : "a",
+        };
+        setGraph((current) => ({ ...current, edges: [...current.edges, edge] }));
+        setTransitionFrom(undefined);
+        setSelection({ type: "edge", id });
+        setTool("select");
+      }
+      return;
+    }
+    const point = canvasPoint(event.clientX, event.clientY);
+    dragRef.current = { id: node.id, dx: point.x - node.x, dy: point.y - node.y };
+    setSelection({ type: "node", id: node.id });
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+  function pointerMove(event: ReactPointerEvent) {
+    if (!dragRef.current) return;
+    const point = canvasPoint(event.clientX, event.clientY);
+    const { id, dx, dy } = dragRef.current;
+    setGraph((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) =>
+        node.id === id ? { ...node, x: Math.max(60, point.x - dx), y: Math.max(60, point.y - dy) } : node,
+      ),
+    }));
+  }
+  function updateNode(patch: Partial<GraphNode>) {
+    if (!selectedNode) return;
+    const becomesStart = patch.role === "start" || patch.role === "start-accept";
+    setGraph((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) => {
+        if (node.id === selectedNode.id) return { ...node, ...patch };
+        if (!becomesStart) return node;
+        if (node.role === "start") return { ...node, role: "normal" };
+        if (node.role === "start-accept") return { ...node, role: "accept" };
+        return node;
+      }),
+    }));
+  }
+  function renameNode(nextId: string) {
+    if (
+      !selectedNode ||
+      !nextId.trim() ||
+      graph.nodes.some((node) => node.id === nextId && node.id !== selectedNode.id)
+    )
+      return;
+    const oldId = selectedNode.id;
+    setGraph((current) => ({
+      nodes: current.nodes.map((node) =>
+        node.id === oldId ? { ...node, id: nextId, label: node.label === oldId ? nextId : node.label } : node,
+      ),
+      edges: current.edges.map((edge) => ({
+        ...edge,
+        from: edge.from === oldId ? nextId : edge.from,
+        to: edge.to === oldId ? nextId : edge.to,
+      })),
+    }));
+    setSelection({ type: "node", id: nextId });
+  }
+  function updateEdge(label: string) {
+    if (selectedEdge)
+      setGraph((current) => ({
+        ...current,
+        edges: current.edges.map((edge) => (edge.id === selectedEdge.id ? { ...edge, label } : edge)),
+      }));
+  }
+  function removeSelection() {
+    if (!selection) return;
+    if (selection.type === "node")
+      setGraph((current) => ({
+        nodes: current.nodes.filter((node) => node.id !== selection.id),
+        edges: current.edges.filter((edge) => edge.from !== selection.id && edge.to !== selection.id),
+      }));
+    else
+      setGraph((current) => ({
+        ...current,
+        edges: current.edges.filter((edge) => edge.id !== selection.id),
+      }));
+    setSelection(null);
+  }
 
-  return <main className="shell">
-    <aside className="rail" aria-label="Machine families">
-      <div className="brand"><span className="brand-mark">C</span><div><strong>Computability</strong><small>formal systems workbench</small></div></div>
-      <p className="rail-label">Machine laboratory</p>
-      {(Object.keys(labels) as MachineKind[]).map((item) => <button className={item === kind ? "machine active" : "machine"} onClick={() => choose(item)} key={item}><span>{item.toUpperCase()}</span>{labels[item].name}</button>)}
-      <div className="rail-note"><span>□</span><p>Definitions remain explicit. The simulator never infers missing transitions.</p></div>
-    </aside>
-    <section className="workbench">
-      <header><div><p className="eyebrow">Active model / {kind.toUpperCase()}</p><h1>{current.name}</h1><p className="subtitle">{current.subtitle}</p></div><button className="outline" onClick={() => choose(kind)}>Restore example</button></header>
-      <div className="workspace">
-        <section className="panel editor"><div className="panel-heading"><div><p className="eyebrow">Definition</p><h2>Machine specification</h2></div><div className="editor-actions"><button className="quiet" onClick={applyDefinition}>Validate JSON</button>{["dfa", "nfa", "regex", "regularGrammar"].includes(kind) && <button className="quiet" onClick={convert}>{kind === "dfa" ? "Minimize" : "Convert to NFA"}</button>}{kind === "cfg" && <button className="quiet" onClick={convertCfgToPda}>Convert to PDA</button>}</div></div>
-          <textarea aria-label="Machine definition in JSON" value={source} onChange={(event) => setSource(event.target.value)} spellCheck={false} />
-          {finite && <p className="annotation">Use <code>ε</code> for an NFA epsilon transition. States, symbols and transitions are checked by the Rust core before execution.</p>}
+  return (
+    <div className="app-shell">
+      <input
+        ref={fileInput}
+        className="visually-hidden"
+        type="file"
+        accept="application/json,.json"
+        onChange={importFile}
+      />
+      {screen === "home" && (
+        <Home
+          projects={projects}
+          filtered={filtered}
+          families={families}
+          family={family}
+          query={query}
+          onFamily={setFamily}
+          onQuery={setQuery}
+          onChoose={chooseModel}
+          onOpen={openProject}
+          onImport={() => fileInput.current?.click()}
+          onTheme={() => setThemeOpen(true)}
+        />
+      )}
+      {screen === "method" && (
+        <Method
+          model={chosen}
+          onBack={() => setScreen("home")}
+          onCreate={startFresh}
+          onImport={() => fileInput.current?.click()}
+          onTheme={() => setThemeOpen(true)}
+        />
+      )}
+      {screen === "studio" && (
+        <Studio
+          model={chosen}
+          project={project}
+          setProject={setProject}
+          graph={graph}
+          view={view}
+          setView={setView}
+          tool={tool}
+          setTool={(next) => {
+            setTool(next);
+            setTransitionFrom(undefined);
+          }}
+          transitionFrom={transitionFrom}
+          selection={selection}
+          setSelection={setSelection}
+          selectedNode={selectedNode}
+          selectedEdge={selectedEdge}
+          source={source}
+          setSource={setSource}
+          input={input}
+          setInput={setInput}
+          result={result}
+          error={error}
+          zoom={zoom}
+          setZoom={setZoom}
+          sidePanel={sidePanel}
+          setSidePanel={setSidePanel}
+          canvasRef={canvasRef}
+          onCanvasClick={handleCanvasClick}
+          onDrop={handleDrop}
+          onPointerDown={pointerDown}
+          onPointerMove={pointerMove}
+          onPointerUp={() => {
+            dragRef.current = null;
+          }}
+          onUpdateNode={updateNode}
+          onRenameNode={renameNode}
+          onUpdateEdge={updateEdge}
+          onRemove={removeSelection}
+          onApplyJson={applyJson}
+          onRun={run}
+          onAction={performModelAction}
+          onSave={saveProject}
+          onExport={exportProject}
+          onImport={() => fileInput.current?.click()}
+          onHome={() => setScreen("home")}
+          onTheme={() => setThemeOpen(true)}
+        />
+      )}
+      {themeOpen && <ThemeDialog theme={theme} onTheme={setTheme} onClose={() => setThemeOpen(false)} />}
+      {notice && (
+        <div className="toast">
+          <span>
+            <Icon name="check" size={16} />
+          </span>
+          {notice}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type HomeProps = {
+  projects: SavedProject[];
+  filtered: ModelMeta[];
+  families: string[];
+  family: string;
+  query: string;
+  onFamily: (value: string) => void;
+  onQuery: (value: string) => void;
+  onChoose: (kind: MachineKind) => void;
+  onOpen: (project: SavedProject) => void;
+  onImport: () => void;
+  onTheme: () => void;
+};
+function Home({
+  projects,
+  filtered,
+  families,
+  family,
+  query,
+  onFamily,
+  onQuery,
+  onChoose,
+  onOpen,
+  onImport,
+  onTheme,
+}: HomeProps) {
+  return (
+    <main className="home-screen">
+      <nav className="topbar">
+        <Brand />
+        <div className="top-actions">
+          <button className="ghost-button" onClick={onImport}>
+            <Icon name="upload" />
+            Importa JSON
+          </button>
+          <button className="icon-button" aria-label="Scegli tema" onClick={onTheme}>
+            <Icon name="palette" />
+          </button>
+        </div>
+      </nav>
+      <section className="home-hero">
+        <div className="hero-copy">
+          <p className="kicker">Laboratorio di computabilità</p>
+          <h1>
+            Costruisci un'idea.
+            <br />
+            <em>Osservala muoversi.</em>
+          </h1>
+          <p>Scegli un modello, disegnane il comportamento e segui ogni passo della sua esecuzione.</p>
+        </div>
+        <div className="hero-diagram" aria-hidden="true">
+          <span className="hero-node start">
+            q<sub>0</sub>
+          </span>
+          <span className="hero-edge first">0</span>
+          <span className="hero-node middle">
+            q<sub>1</sub>
+          </span>
+          <span className="hero-edge second">1</span>
+          <span className="hero-node accept">
+            q<sub>2</sub>
+          </span>
+          <span className="hero-loop">0, 1</span>
+        </div>
+      </section>
+      {projects.length > 0 && (
+        <section className="recent-section section-wrap">
+          <div className="section-title">
+            <div>
+              <p className="kicker">Continua da dove eri rimasto</p>
+              <h2>Progetti recenti</h2>
+            </div>
+          </div>
+          <div className="recent-row">
+            {projects.slice(0, 4).map((item) => (
+              <button className="recent-card" key={item.id} onClick={() => onOpen(item)}>
+                <span className={`recent-code accent-${metaFor(item.kind).accent}`}>
+                  {metaFor(item.kind).code}
+                </span>
+                <span>
+                  <strong>{item.name}</strong>
+                  <small>
+                    {new Intl.DateTimeFormat("it", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(item.updatedAt))}
+                  </small>
+                </span>
+                <Icon name="arrow" />
+              </button>
+            ))}
+          </div>
         </section>
-        <section className="panel runner"><div className="panel-heading"><div><p className="eyebrow">Execution</p><h2>Run a word or sequence</h2></div><span className="status">ready</span></div>
-          <label htmlFor="input">{inputHint}</label><input id="input" value={input} onChange={(event) => setInput(event.target.value)} />
-          <button className="run" onClick={run}>Run machine <span>→</span></button>{kind === "cfg" && <div className="parser-actions"><button className="quiet" onClick={runCyk}>Run CYK parser</button><button className="quiet" onClick={runLl1}>Run LL(1) parser</button></div>}
-          <div className="result" aria-live="polite"><p className="eyebrow">Result</p>{error ? <p className="failure">{error}</p> : result ? <pre>{JSON.stringify(result, null, 2)}</pre> : <p className="placeholder">Run the definition to inspect its accepted state, trace, or marking.</p>}</div>
+      )}
+      <section className="catalogue-section section-wrap">
+        <div className="section-title catalogue-head">
+          <div>
+            <p className="kicker">Nuovo progetto</p>
+            <h2>Scegli un modello</h2>
+          </div>
+          <label className="search-box">
+            <Icon name="search" />
+            <input
+              value={query}
+              onChange={(event) => onQuery(event.target.value)}
+              placeholder="Cerca un modello..."
+            />
+            <span>⌘ K</span>
+          </label>
+        </div>
+        <div className="family-tabs" role="tablist" aria-label="Famiglie di modelli">
+          {families.map((item) => (
+            <button
+              role="tab"
+              aria-selected={family === item}
+              className={family === item ? "active" : ""}
+              key={item}
+              onClick={() => onFamily(item)}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
+        <div className="model-grid">
+          {filtered.map((model) => (
+            <button
+              className={`model-card accent-${model.accent}`}
+              key={model.kind}
+              onClick={() => onChoose(model.kind)}
+            >
+              <div className="card-top">
+                <span className="model-code">{model.code}</span>
+                <span className="card-arrow">
+                  <Icon name="arrow" />
+                </span>
+              </div>
+              <ModelGlyph model={model} />
+              <div className="model-copy">
+                <h3>{model.shortName}</h3>
+                <p>{model.description}</p>
+              </div>
+              <span className="model-family">{model.family}</span>
+            </button>
+          ))}
+        </div>
+        {!filtered.length && (
+          <div className="empty-state">
+            <Icon name="search" size={28} />
+            <h3>Nessun modello trovato</h3>
+            <p>Prova un nome, una sigla o una famiglia diversa.</p>
+          </div>
+        )}
+      </section>
+      <footer className="home-footer">
+        <Brand />
+        <span>Motore di simulazione Rust · Interfaccia desktop TypeScript</span>
+      </footer>
+    </main>
+  );
+}
+
+function Brand() {
+  return (
+    <div className="brand">
+      <span className="brand-symbol">
+        <i />
+        <i />
+        <i />
+      </span>
+      <span>
+        <strong>Computability</strong>
+        <small>Visual machine lab</small>
+      </span>
+    </div>
+  );
+}
+
+function Method({
+  model,
+  onBack,
+  onCreate,
+  onImport,
+  onTheme,
+}: {
+  model: ModelMeta;
+  onBack: () => void;
+  onCreate: () => void;
+  onImport: () => void;
+  onTheme: () => void;
+}) {
+  return (
+    <main className="method-screen">
+      <nav className="topbar">
+        <Brand />
+        <button className="icon-button" aria-label="Scegli tema" onClick={onTheme}>
+          <Icon name="palette" />
+        </button>
+      </nav>
+      <button className="back-button" onClick={onBack}>
+        <Icon name="back" />
+        Tutti i modelli
+      </button>
+      <section className="method-content">
+        <div className={`method-badge accent-${model.accent}`}>
+          <ModelGlyph model={model} />
+          <span>{model.code}</span>
+        </div>
+        <p className="kicker">Nuovo progetto</p>
+        <h1>{model.name}</h1>
+        <p className="method-intro">
+          Come vuoi iniziare? Potrai passare dalla vista visuale al JSON in qualsiasi momento.
+        </p>
+        <div className="method-options">
+          <button className="method-card primary" onClick={onCreate}>
+            <span className="method-icon">
+              <Icon name={model.visual ? "canvas" : "edit"} size={29} />
+            </span>
+            <span>
+              <small>{model.visual ? "Consigliato" : "Editor guidato"}</small>
+              <strong>{model.visual ? "Disegna nella lavagna" : "Crea nell'editor"}</strong>
+              <p>
+                {model.visual
+                  ? "Trascina stati, collega transizioni e modifica ogni proprietà senza scrivere codice."
+                  : "Parti da un esempio leggibile e modifica direttamente la definizione del modello."}
+              </p>
+            </span>
+            <Icon name="arrow" />
+          </button>
+          <button className="method-card" onClick={onImport}>
+            <span className="method-icon">
+              <Icon name="upload" size={29} />
+            </span>
+            <span>
+              <small>Da un file esistente</small>
+              <strong>Importa da JSON</strong>
+              <p>Apri una definizione o un intero progetto salvato in precedenza.</p>
+            </span>
+            <Icon name="arrow" />
+          </button>
+        </div>
+        <p className="method-note">I progetti restano sul tuo dispositivo finché non scegli di esportarli.</p>
+      </section>
+    </main>
+  );
+}
+
+type StudioProps = {
+  model: ModelMeta;
+  project: { id: string; name: string };
+  setProject: React.Dispatch<React.SetStateAction<{ id: string; name: string }>>;
+  graph: WorkspaceGraph;
+  view: "canvas" | "json";
+  setView: (value: "canvas" | "json") => void;
+  tool: Tool;
+  setTool: (value: Tool) => void;
+  transitionFrom?: string;
+  selection: Selection;
+  setSelection: (value: Selection) => void;
+  selectedNode?: GraphNode;
+  selectedEdge?: GraphEdge;
+  source: string;
+  setSource: (value: string) => void;
+  input: string;
+  setInput: (value: string) => void;
+  result?: unknown;
+  error?: string;
+  zoom: number;
+  setZoom: React.Dispatch<React.SetStateAction<number>>;
+  sidePanel: "properties" | "run";
+  setSidePanel: (value: "properties" | "run") => void;
+  canvasRef: React.RefObject<HTMLDivElement | null>;
+  onCanvasClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onDrop: (event: DragEvent<HTMLDivElement>) => void;
+  onPointerDown: (event: ReactPointerEvent, node: GraphNode) => void;
+  onPointerMove: (event: ReactPointerEvent) => void;
+  onPointerUp: () => void;
+  onUpdateNode: (patch: Partial<GraphNode>) => void;
+  onRenameNode: (id: string) => void;
+  onUpdateEdge: (label: string) => void;
+  onRemove: () => void;
+  onApplyJson: () => void;
+  onRun: () => void;
+  onAction: (action: ModelAction) => void;
+  onSave: () => void;
+  onExport: () => void;
+  onImport: () => void;
+  onHome: () => void;
+  onTheme: () => void;
+};
+function Studio(props: StudioProps) {
+  const {
+    model,
+    project,
+    setProject,
+    graph,
+    view,
+    setView,
+    tool,
+    setTool,
+    transitionFrom,
+    selection,
+    setSelection,
+    selectedNode,
+    selectedEdge,
+    source,
+    setSource,
+    input,
+    setInput,
+    result,
+    error,
+    zoom,
+    setZoom,
+    sidePanel,
+    setSidePanel,
+    canvasRef,
+    onCanvasClick,
+    onDrop,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onUpdateNode,
+    onRenameNode,
+    onUpdateEdge,
+    onRemove,
+    onApplyJson,
+    onRun,
+    onAction,
+    onSave,
+    onExport,
+    onImport,
+    onHome,
+    onTheme,
+  } = props;
+  return (
+    <main className="studio-screen">
+      <header className="studio-header">
+        <button className="brand-button" onClick={onHome} aria-label="Torna alla home">
+          <Brand />
+        </button>
+        <span className="header-divider" />
+        <span className={`project-chip accent-${model.accent}`}>{model.code}</span>
+        <input
+          className="project-name"
+          aria-label="Nome progetto"
+          value={project.name}
+          onChange={(event) => setProject((current) => ({ ...current, name: event.target.value }))}
+        />
+        <span className="saved-indicator">
+          <i />
+          Sul dispositivo
+        </span>
+        <div className="studio-actions">
+          <button className="icon-button" aria-label="Scegli tema" onClick={onTheme}>
+            <Icon name="palette" />
+          </button>
+          <button className="ghost-button" onClick={onImport}>
+            <Icon name="folder" />
+            Apri
+          </button>
+          <button className="ghost-button" onClick={onExport}>
+            <Icon name="download" />
+            Esporta
+          </button>
+          <button className="solid-button" onClick={onSave}>
+            <Icon name="save" />
+            Salva
+          </button>
+        </div>
+      </header>
+      <div className="studio-body">
+        <aside className="tool-rail" aria-label="Strumenti">
+          <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}>
+            <span className="cursor-icon">↖</span>
+            <small>Seleziona</small>
+          </button>
+          {model.visual && (
+            <>
+              <button
+                className={tool === "state" ? "active" : ""}
+                onClick={() => setTool("state")}
+                draggable
+                onDragStart={(event) => event.dataTransfer.setData("text/plain", "state")}
+              >
+                <span className="state-tool" />
+                <small>{model.kind === "petri" ? "Luogo" : "Stato"}</small>
+              </button>
+              <button className={tool === "transition" ? "active" : ""} onClick={() => setTool("transition")}>
+                <Icon name="arrow" />
+                <small>{model.kind === "petri" ? "Evento" : "Transizione"}</small>
+              </button>
+            </>
+          )}
+          <span className="rail-spacer" />
+          <button onClick={onTheme}>
+            <Icon name="palette" />
+            <small>Tema</small>
+          </button>
+        </aside>
+        <section className="work-area">
+          <div className="viewbar">
+            <div className="segmented">
+              <button
+                className={view === "canvas" ? "active" : ""}
+                disabled={!model.visual}
+                onClick={() => setView("canvas")}
+              >
+                <Icon name="canvas" />
+                Lavagna
+              </button>
+              <button className={view === "json" ? "active" : ""} onClick={() => setView("json")}>
+                <Icon name="code" />
+                JSON
+              </button>
+            </div>
+            <div className="workspace-help">
+              {transitionFrom ? (
+                <>
+                  {model.kind === "petri"
+                    ? "Ora scegli il luogo di destinazione"
+                    : "Ora scegli lo stato di destinazione"}{" "}
+                  <kbd>Esc</kbd> annulla
+                </>
+              ) : tool === "state" ? (
+                model.kind === "petri" ? (
+                  "Fai clic nella lavagna per inserire un luogo"
+                ) : (
+                  "Fai clic nella lavagna per inserire uno stato"
+                )
+              ) : model.kind === "petri" ? (
+                "Trascina luoghi ed eventi per organizzare la rete"
+              ) : (
+                "Trascina gli stati per organizzare il modello"
+              )}
+            </div>
+            <div className="zoom-controls">
+              <button onClick={() => setZoom((value) => Math.max(0.65, value - 0.1))}>−</button>
+              <span>{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom((value) => Math.min(1.5, value + 0.1))}>+</button>
+            </div>
+          </div>
+          {view === "canvas" ? (
+            <div
+              ref={canvasRef}
+              className={`canvas ${tool !== "select" ? `tool-${tool}` : ""}`}
+              onClick={onCanvasClick}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={onDrop}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+            >
+              <div className="canvas-grid" style={{ transform: `scale(${zoom})`, transformOrigin: "0 0" }}>
+                <Graph
+                  graph={graph}
+                  selection={selection}
+                  transitionFrom={transitionFrom}
+                  onSelect={setSelection}
+                  onPointerDown={onPointerDown}
+                />
+              </div>
+              {graph.nodes.length === 0 && (
+                <div className="canvas-empty">
+                  <span className="state-tool large" />
+                  <h3>La lavagna è vuota</h3>
+                  <p>
+                    {model.kind === "petri"
+                      ? "Aggiungi un luogo e collegalo a un altro per creare un evento."
+                      : "Trascina uno stato dalla barra oppure fai clic sullo strumento Stato."}
+                  </p>
+                </div>
+              )}
+              <div className="canvas-legend">
+                {model.kind === "petri" ? (
+                  <>
+                    <span>
+                      <i className="legend-normal" />
+                      luogo
+                    </span>
+                    <span>
+                      <i className="legend-event" />
+                      evento
+                    </span>
+                    <span>
+                      <i className="legend-token" />
+                      token
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      <i className="legend-start" />
+                      iniziale
+                    </span>
+                    <span>
+                      <i className="legend-accept" />
+                      finale
+                    </span>
+                    <span>
+                      <i className="legend-normal" />
+                      stato
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="json-workspace">
+              <div className="json-head">
+                <div>
+                  <p className="kicker">Definizione completa</p>
+                  <h2>JSON del modello</h2>
+                </div>
+                <button className="solid-button" onClick={onApplyJson}>
+                  <Icon name="check" />
+                  Applica modifiche
+                </button>
+              </div>
+              <textarea
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+                spellCheck={false}
+                aria-label="Definizione JSON"
+              />
+            </div>
+          )}
         </section>
+        <aside className="inspector">
+          <div className="inspector-tabs">
+            <button
+              className={sidePanel === "properties" ? "active" : ""}
+              onClick={() => setSidePanel("properties")}
+            >
+              Proprietà
+            </button>
+            <button className={sidePanel === "run" ? "active" : ""} onClick={() => setSidePanel("run")}>
+              Esecuzione{result !== undefined && <i />}
+            </button>
+          </div>
+          {sidePanel === "properties" ? (
+            <Properties
+              model={model}
+              node={selectedNode}
+              edge={selectedEdge}
+              onUpdateNode={onUpdateNode}
+              onRenameNode={onRenameNode}
+              onUpdateEdge={onUpdateEdge}
+              onRemove={onRemove}
+            />
+          ) : (
+            <Runner
+              model={model}
+              input={input}
+              setInput={setInput}
+              result={result}
+              error={error}
+              onRun={onRun}
+              onAction={onAction}
+            />
+          )}
+        </aside>
       </div>
-      <footer><span>Rust simulation core</span><span>•</span><span>TypeScript desktop interface</span><span>•</span><span>Symbols are tokenized on whitespace</span></footer>
-    </section>
-  </main>;
+    </main>
+  );
+}
+
+function Graph({
+  graph,
+  selection,
+  transitionFrom,
+  onSelect,
+  onPointerDown,
+}: {
+  graph: WorkspaceGraph;
+  selection: Selection;
+  transitionFrom?: string;
+  onSelect: (value: Selection) => void;
+  onPointerDown: (event: ReactPointerEvent, node: GraphNode) => void;
+}) {
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  return (
+    <>
+      {
+        <svg className="edge-layer" width="1400" height="900" aria-hidden="true">
+          <defs>
+            <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" />
+            </marker>
+          </defs>
+          {graph.edges.map((edge) => {
+            const from = byId.get(edge.from),
+              to = byId.get(edge.to);
+            if (!from || !to) return null;
+            const self = from.id === to.id;
+            const path = self
+              ? `M ${from.x - 20} ${from.y - 42} C ${from.x - 80} ${from.y - 105}, ${from.x + 80} ${from.y - 105}, ${from.x + 20} ${from.y - 42}`
+              : `M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${(from.y + to.y) / 2 - 28} ${to.x} ${to.y}`;
+            const lx = self ? from.x : (from.x + to.x) / 2,
+              ly = self ? from.y - 91 : (from.y + to.y) / 2 - 20;
+            return (
+              <g
+                className={selection?.type === "edge" && selection.id === edge.id ? "edge selected" : "edge"}
+                key={edge.id}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect({ type: "edge", id: edge.id });
+                }}
+              >
+                <path d={path} />
+                <rect
+                  x={lx - Math.max(23, edge.label.length * 3.6)}
+                  y={ly - 13}
+                  width={Math.max(46, edge.label.length * 7.2)}
+                  height="26"
+                  rx="7"
+                />
+                <text x={lx} y={ly + 4}>
+                  {edge.label}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      }
+      {graph.nodes.map((node) => (
+        <button
+          type="button"
+          className={`graph-node role-${node.role} ${selection?.type === "node" && selection.id === node.id ? "selected" : ""} ${transitionFrom === node.id ? "transition-source" : ""}`}
+          style={{ left: node.x, top: node.y }}
+          key={node.id}
+          onPointerDown={(event) => onPointerDown(event, node)}
+        >
+          <span className="node-body">
+            {node.role === "start" || node.role === "start-accept" ? <i className="start-arrow">→</i> : null}
+            {node.label}
+            {node.tokens !== undefined && node.tokens > 0 && <b className="token-count">{node.tokens}</b>}
+          </span>
+        </button>
+      ))}
+    </>
+  );
+}
+
+function Properties({
+  model,
+  node,
+  edge,
+  onUpdateNode,
+  onRenameNode,
+  onUpdateEdge,
+  onRemove,
+}: {
+  model: ModelMeta;
+  node?: GraphNode;
+  edge?: GraphEdge;
+  onUpdateNode: (patch: Partial<GraphNode>) => void;
+  onRenameNode: (id: string) => void;
+  onUpdateEdge: (label: string) => void;
+  onRemove: () => void;
+}) {
+  if (!node && !edge)
+    return (
+      <div className="inspector-empty">
+        <span className="selection-illustration">
+          <i />
+          <b />
+          <i />
+        </span>
+        <h3>Nessuna selezione</h3>
+        <p>
+          {model.kind === "petri"
+            ? "Seleziona un luogo, un evento o un arco per modificarne le proprietà."
+            : "Seleziona uno stato o una transizione per modificarne le proprietà."}
+        </p>
+        <div className="tip">
+          <strong>Suggerimento</strong>
+          <span>
+            Premi <kbd>Esc</kbd> per tornare allo strumento di selezione.
+          </span>
+        </div>
+      </div>
+    );
+  return (
+    <div className="property-form">
+      <div className="property-title">
+        <span className={node ? "state-tool" : "transition-swatch"} />
+        <div>
+          <p className="kicker">
+            {node
+              ? node.role === "place"
+                ? "Luogo selezionato"
+                : node.role === "event"
+                  ? "Evento selezionato"
+                  : "Stato selezionato"
+              : model.kind === "petri"
+                ? "Arco selezionato"
+                : "Transizione selezionata"}
+          </p>
+          <h3>{node?.label ?? `${edge?.from} → ${edge?.to}`}</h3>
+        </div>
+      </div>
+      {node ? (
+        <>
+          <label>
+            Identificatore
+            <input value={node.id} onChange={(event) => onRenameNode(event.target.value)} />
+          </label>
+          <label>
+            Etichetta
+            <input value={node.label} onChange={(event) => onUpdateNode({ label: event.target.value })} />
+          </label>
+          {node.role !== "place" && node.role !== "event" && (
+            <label>
+              Ruolo
+              <select
+                value={node.role}
+                onChange={(event) => onUpdateNode({ role: event.target.value as GraphNode["role"] })}
+              >
+                <option value="normal">Stato normale</option>
+                <option value="start">Stato iniziale</option>
+                <option value="accept">Stato finale</option>
+                <option value="start-accept">Iniziale e finale</option>
+              </select>
+            </label>
+          )}
+          {node.tokens !== undefined && (
+            <label>
+              Token
+              <input
+                type="number"
+                min="0"
+                value={node.tokens}
+                onChange={(event) => onUpdateNode({ tokens: Number(event.target.value) })}
+              />
+            </label>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="connection">
+            <span>{edge?.from}</span>
+            <Icon name="arrow" />
+            <span>{edge?.to}</span>
+          </div>
+          <label>
+            Etichetta della transizione
+            <input value={edge?.label ?? ""} onChange={(event) => onUpdateEdge(event.target.value)} />
+            <small>
+              {model.kind === "mealy"
+                ? "Formato: input / output"
+                : model.kind === "turing"
+                  ? "Formato: letto → scritto, movimento"
+                  : model.kind === "pda"
+                    ? "Formato: input, pop → push"
+                    : "Usa ε per una transizione vuota"}
+            </small>
+          </label>
+        </>
+      )}
+      <button className="danger-button" onClick={onRemove}>
+        <Icon name="trash" />
+        Elimina{" "}
+        {node
+          ? node.role === "place"
+            ? "luogo"
+            : node.role === "event"
+              ? "evento"
+              : "stato"
+          : model.kind === "petri"
+            ? "arco"
+            : "transizione"}
+      </button>
+    </div>
+  );
+}
+
+function Runner({
+  model,
+  input,
+  setInput,
+  result,
+  error,
+  onRun,
+  onAction,
+}: {
+  model: ModelMeta;
+  input: string;
+  setInput: (value: string) => void;
+  result?: unknown;
+  error?: string;
+  onRun: () => void;
+  onAction: (action: ModelAction) => void;
+}) {
+  const hint =
+    model.kind === "petri"
+      ? "Sequenza di transizioni"
+      : model.kind === "multiTuring"
+        ? "Separa i nastri con |"
+        : ["lsystem", "contextualLsystem", "stochasticLsystem"].includes(model.kind)
+          ? "Numero di generazioni"
+          : "Simboli separati da spazi";
+  const actions: { id: ModelAction; label: string }[] =
+    model.kind === "dfa"
+      ? [{ id: "minimize_dfa", label: "Minimizza DFA" }]
+      : model.kind === "nfa"
+        ? [{ id: "determinize", label: "Determinizza" }]
+        : model.kind === "regex"
+          ? [{ id: "regex_to_nfa", label: "Converti in NFA" }]
+          : model.kind === "regularGrammar"
+            ? [{ id: "regular_grammar_to_nfa", label: "Converti in NFA" }]
+            : model.kind === "cfg"
+              ? [
+                  { id: "cyk", label: "Parser CYK" },
+                  { id: "ll1", label: "Parser LL(1)" },
+                  { id: "cfg_to_pda", label: "Converti in PDA" },
+                ]
+              : [];
+  return (
+    <div className="runner-panel">
+      <div className="run-intro">
+        <span className={`run-model accent-${model.accent}`}>{model.code}</span>
+        <div>
+          <p className="kicker">Banco di prova</p>
+          <h3>Esegui il modello</h3>
+        </div>
+      </div>
+      <label>
+        {hint}
+        <textarea
+          rows={3}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          placeholder="a b b"
+        />
+      </label>
+      <button className="run-button" onClick={onRun}>
+        <span>
+          <Icon name="play" />
+          Avvia simulazione
+        </span>
+        <kbd>⌘ ↵</kbd>
+      </button>
+      {actions.length > 0 && (
+        <div className="model-actions">
+          <span>Strumenti del modello</span>
+          {actions.map((action) => (
+            <button key={action.id} onClick={() => onAction(action.id)}>
+              <Icon name="arrow" size={15} />
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="result-box" aria-live="polite">
+        <div className="result-head">
+          <span>Risultato</span>
+          {result !== undefined && !error && (
+            <small>
+              <i />
+              completato
+            </small>
+          )}
+        </div>
+        {error ? (
+          <p className="run-error">{error}</p>
+        ) : result !== undefined ? (
+          <pre>{JSON.stringify(result, null, 2)}</pre>
+        ) : (
+          <div className="result-empty">
+            <Icon name="play" />
+            <p>Il risultato e la traccia di esecuzione appariranno qui.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ThemeDialog({
+  theme,
+  onTheme,
+  onClose,
+}: {
+  theme: ThemeName;
+  onTheme: (theme: ThemeName) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="dialog-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="theme-dialog" role="dialog" aria-modal="true" aria-labelledby="theme-title">
+        <button className="dialog-close" onClick={onClose} aria-label="Chiudi">
+          <Icon name="close" />
+        </button>
+        <p className="kicker">Aspetto</p>
+        <h2 id="theme-title">Scegli il tuo ambiente</h2>
+        <p>I colori cambiano, la leggibilità resta la stessa.</p>
+        <div className="theme-list">
+          {themes.map((item) => (
+            <button
+              className={theme === item.id ? "selected" : ""}
+              key={item.id}
+              onClick={() => onTheme(item.id)}
+            >
+              <span className="theme-preview">
+                {item.swatches.map((color) => (
+                  <i key={color} style={{ background: color }} />
+                ))}
+              </span>
+              <strong>{item.name}</strong>
+              {theme === item.id && (
+                <span className="theme-check">
+                  <Icon name="check" />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button className="solid-button dialog-done" onClick={onClose}>
+          Applica tema
+        </button>
+      </section>
+    </div>
+  );
 }
