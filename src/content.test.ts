@@ -42,7 +42,19 @@ describe("localized model catalogue", () => {
   });
 
   it("translates workspace tabs and the guided editor", () => {
-    const labels = ["Aree di lavoro aperte", "Editor di regole", "Chiudi area di lavoro", "Editor guidato"];
+    const labels = [
+      "Aree di lavoro aperte",
+      "Editor di regole",
+      "Chiudi area di lavoro",
+      "Editor guidato",
+      "Nuovo simbolo",
+      "Aggiungi simbolo",
+      "Rimuovi simbolo",
+      "Riduci zoom",
+      "Aumenta zoom",
+      "Variabili",
+      "Terminali",
+    ];
     for (const language of translatedLanguages) {
       for (const label of labels) expect(translate(language, label)).not.toBe(label);
     }

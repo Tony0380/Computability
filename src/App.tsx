@@ -7,12 +7,14 @@ import {
   type ChangeEvent,
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { catalogue, metaFor, type ModelMeta } from "./catalog";
+import { stepCanvasZoom, zoomDirectionFromKey } from "./canvasZoom";
 import { examples, type Definition, type MachineKind } from "./domain";
 import { GuidedDefinitionEditor } from "./guidedEditor";
 import { detectedLanguage, I18nProvider, languages, useI18n, type Language } from "./i18n";
@@ -1150,7 +1152,7 @@ function Home({
           </div>
         </section>
       )}
-      <section className="catalogue-section section-wrap">
+      <section id="catalogue" className="catalogue-section section-wrap">
         <div className="section-title catalogue-head">
           <div>
             <p className="kicker">{t("Nuovo progetto")}</p>
@@ -1434,6 +1436,37 @@ function Studio(props: StudioProps) {
     onTheory,
   } = props;
   const { t } = useI18n();
+
+  useEffect(() => {
+    const handleZoomShortcut = (event: KeyboardEvent) => {
+      if (view !== "canvas" || (!event.ctrlKey && !event.metaKey)) return;
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      const direction = zoomDirectionFromKey(event);
+      if (!direction) return;
+      event.preventDefault();
+      setZoom((current) => stepCanvasZoom(current, direction));
+    };
+    window.addEventListener("keydown", handleZoomShortcut);
+    return () => window.removeEventListener("keydown", handleZoomShortcut);
+  }, [setZoom, view]);
+
+  function handleCanvasWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const canvas = event.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    setZoom((current) => {
+      const next = stepCanvasZoom(current, event.deltaY < 0 ? "in" : "out");
+      const ratio = next / current;
+      requestAnimationFrame(() => {
+        canvas.scrollLeft = (canvas.scrollLeft + pointerX) * ratio - pointerX;
+        canvas.scrollTop = (canvas.scrollTop + pointerY) * ratio - pointerY;
+      });
+      return next;
+    });
+  }
   return (
     <main className="studio-screen">
       <header className="studio-header">
@@ -1584,9 +1617,21 @@ function Studio(props: StudioProps) {
             </div>
             {view === "canvas" && (
               <div className="zoom-controls">
-                <button onClick={() => setZoom((value) => Math.max(0.65, value - 0.1))}>−</button>
-                <span>{Math.round(zoom * 100)}%</span>
-                <button onClick={() => setZoom((value) => Math.min(1.5, value + 0.1))}>+</button>
+                <button
+                  aria-label={t("Riduci zoom")}
+                  title={`${t("Riduci zoom")} (Ctrl −)`}
+                  onClick={() => setZoom((value) => stepCanvasZoom(value, "out"))}
+                >
+                  −
+                </button>
+                <span aria-live="polite">{Math.round(zoom * 100)}%</span>
+                <button
+                  aria-label={t("Aumenta zoom")}
+                  title={`${t("Aumenta zoom")} (Ctrl +)`}
+                  onClick={() => setZoom((value) => stepCanvasZoom(value, "in"))}
+                >
+                  +
+                </button>
               </div>
             )}
           </div>
@@ -1600,6 +1645,11 @@ function Studio(props: StudioProps) {
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
+              onWheel={handleCanvasWheel}
+              tabIndex={0}
+              aria-label={t(
+                "Lavagna interattiva. Usa Ctrl più rotellina oppure Ctrl più o meno per lo zoom.",
+              )}
             >
               <div className="canvas-grid" style={{ transform: `scale(${zoom})`, transformOrigin: "0 0" }}>
                 <Graph
