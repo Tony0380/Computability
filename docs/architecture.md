@@ -62,8 +62,12 @@ the quantifier order of the lemma.
 The desktop shell owns release discovery and installation through Tauri's
 updater and process plugins. The interface can request a check and display
 download progress, but it cannot bypass signature verification. GitHub Releases
-hosts the platform installer, its detached signature and `latest.json`; the
-private signing key exists only as encrypted Actions secrets.
+hosts the platform packages, their detached signatures and `latest.json`; the
+private signing key exists only as encrypted Actions secrets. The release
+matrix builds Windows x64, macOS Intel, macOS Apple Silicon, and Linux x64.
+Linux publishes both Debian and portable AppImage packages; the publish job
+also materializes an Arch `PKGBUILD` pinned to the exact AppImage checksum, so
+it does not claim a native package for every Linux architecture.
 
 The visual catalogue and workspace share one localization provider. Formal
 theory is stored separately from machine definitions so educational copy cannot

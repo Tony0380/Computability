@@ -1,0 +1,23 @@
+pkgname=computability-bin
+pkgver=__VERSION__
+pkgrel=1
+pkgdesc='Desktop laboratory for formal models of computation'
+arch=('x86_64')
+url='https://github.com/Tony0380/Computability'
+license=('MIT')
+source=("Computability_${pkgver}_linux-x86_64.AppImage::__APPIMAGE_URL__")
+sha256sums=('__SHA256__')
+
+package() {
+  install -Dm755 "$srcdir/Computability_${pkgver}_linux-x86_64.AppImage" \
+    "$pkgdir/opt/computability/computability"
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/computability.desktop" <<'DESKTOP'
+[Desktop Entry]
+Name=Computability
+Comment=Formal models of computation laboratory
+Exec=/opt/computability/computability
+Terminal=false
+Type=Application
+Categories=Education;Science;
+DESKTOP
+}

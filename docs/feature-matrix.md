@@ -29,6 +29,10 @@ command and has a corresponding UI entry or operation.
 | L-systems           | Contextual rewriting                     | Available         | Left and right token context.                          |
 | L-systems           | Stochastic rewriting                     | Available         | Weighted rules with a reproducible seed.               |
 | Petri nets          | Place/transition firing sequence         | Available         | Positive weighted arcs.                                |
+| Desktop delivery    | Windows x64 installer                    | Available         | NSIS and MSI packages with updater signatures.         |
+| Desktop delivery    | Linux x64 packages                       | Available         | Debian `.deb`, portable AppImage, and Arch PKGBUILD.   |
+| Desktop delivery    | macOS Intel package                      | Available         | x86_64 DMG with updater signature.                     |
+| Desktop delivery    | macOS Apple Silicon package              | Available         | aarch64 DMG with updater signature.                    |
 | Grammars            | PDA to CFG                               | Not yet available | Requires normalising PDA transitions first.            |
 | Grammars            | SLR table builder and parser             | Not yet available | Requires LR(0) item-set construction.                  |
 | Automata            | FA/grammar/RE reverse conversions        | Not yet available | Need proof-step representations, not only end results. |

@@ -84,19 +84,28 @@ remain testable without rendering a desktop window. See
 [docs/architecture.md](docs/architecture.md) for invariants and command
 boundaries.
 
-## Download and install (Windows)
+## Download and install
 
-End users only need the published installer. Rust, Node.js, and build tools are
-not required.
+End users only need a published package. Rust, Node.js, and build tools are not
+required.
 
 1. Open the [latest GitHub release](https://github.com/Tony0380/Computability/releases).
-2. Download the x64 `.exe` installer (or the MSI package for managed deployment).
-3. Run the installer and launch **Computability** from the Start menu.
+2. Choose the package for your operating system:
+   - Windows: x64 `.exe` installer or `.msi` package.
+   - macOS: `.dmg` for Intel or Apple Silicon.
+   - Debian and Ubuntu: x64 `.deb` package.
+   - Other Linux distributions: x64 `.AppImage`; it runs without a package
+     manager and is the recommended portable option.
+   - Arch Linux: download `PKGBUILD`, then run `makepkg -si` in its directory.
+3. Launch **Computability** from the application menu or installed shortcut.
 
-The installer is per-user. WebView2 is installed or reused by the Tauri
-runtime, so a first install may require an internet connection. Release assets
-include detached updater signatures and `latest.json`; the updater verifies
-these signatures before installing an update.
+The Windows installer is per-user. WebView2 is installed or reused by the
+Tauri runtime, so a first install may require an internet connection. Linux
+AppImage users may need their distribution's FUSE 2 compatibility package.
+Release assets include detached updater signatures and `latest.json`; the
+updater verifies these signatures before installing an update. macOS packages
+may show the standard Gatekeeper confirmation when no Apple Developer signing
+certificate is configured.
 
 ## Development
 
@@ -131,8 +140,9 @@ npm.cmd run release:check
 
 The `Quality` GitHub Actions workflow runs the same gates on pull requests and
 on pushes to `master`. Successful `master` builds receive an immutable tag in
-the form `v<version>-master.<run-number>`; the Windows release workflow then
-publishes the installer, signatures, and updater manifest.
+the form `v<version>-master.<run-number>`; the desktop release workflow then
+publishes Windows, macOS, Linux, Arch recipe, signatures, and the updater
+manifest.
 
 ## Project files
 
