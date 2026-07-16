@@ -96,11 +96,13 @@ exported as portable JSON. The execution panel runs the active definition and
 keeps access to minimisation, determinisation, model conversions, CYK and LL(1)
 tools. Every catalogue entry also has a theory page with its formal tuple,
 components, dynamics, acceptance condition, expressive power and study notes.
-The navigation and model catalogue are available in Italian, English, French,
-German, Spanish and Portuguese; the complete theory text is provided in
-Italian and English. Four accessible themes are bundled, as is the Montserrat
-typeface, so the interface does not depend on fonts installed on the user's
-computer.
+The complete interface—including the catalogue, visual workspace, guided rule
+editors, validation messages, project names, updater and formal theory
+pages—is available in Italian, English, French, German, Spanish and Portuguese.
+Automated coverage tests prevent untranslated static and dynamic labels from
+silently falling back to another language. Four accessible themes are bundled,
+as is the Montserrat typeface, so the interface does not depend on fonts
+installed on the user's computer.
 
 On Windows the executable uses the graphical subsystem in both development and
 release builds, preventing a terminal window from opening behind the app.

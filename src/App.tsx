@@ -17,9 +17,8 @@ import { catalogue, metaFor, type ModelMeta } from "./catalog";
 import { stepCanvasZoom, zoomDirectionFromKey } from "./canvasZoom";
 import { examples, type Definition, type MachineKind } from "./domain";
 import { GuidedDefinitionEditor } from "./guidedEditor";
-import { detectedLanguage, I18nProvider, languages, useI18n, type Language } from "./i18n";
-import { theories } from "./theory";
-import { theoryInEnglish } from "./theoryEnglish";
+import { detectedLanguage, I18nProvider, languages, translate, useI18n, type Language } from "./i18n";
+import { theoryForLanguage } from "./theoryLocalized";
 import {
   definitionFromGraph,
   graphFromDefinition,
@@ -343,7 +342,10 @@ export default function App() {
   const [kind, setKind] = useState<MachineKind>("dfa");
   const [definition, setDefinition] = useState<Definition>(examples.dfa);
   const [graph, setGraph] = useState<WorkspaceGraph>(() => graphFromDefinition("dfa", examples.dfa));
-  const [project, setProject] = useState({ id: projectId(), name: "Automa senza titolo" });
+  const [project, setProject] = useState({
+    id: projectId(),
+    name: translate(language, "Automa deterministico senza titolo"),
+  });
   const [projects, setProjects] = useState<SavedProject[]>(readProjects);
   const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>(readWorkspaceTabs);
   const [theme, setTheme] = useState<ThemeName>(
@@ -490,7 +492,9 @@ export default function App() {
   }
   function startFresh() {
     const nextDefinition = structuredClone(examples[kind]);
-    const nextName = `${metaFor(kind).shortName} senza titolo`;
+    const nextName = translate(language, "{model} senza titolo", {
+      model: translate(language, metaFor(kind).name),
+    });
     const nextProject = { id: projectId(), name: nextName };
     const nextGraph = graphFromDefinition(kind, nextDefinition);
     const nextView = metaFor(kind).visual ? "canvas" : "rules";
@@ -575,7 +579,7 @@ export default function App() {
     setOpenTabs((current) =>
       upsertWorkspaceTab(current, { ...workspaceSnapshot(), definition: nextDefinition }),
     );
-    flash("Progetto salvato sul dispositivo");
+    flash(translate(language, "Progetto salvato sul dispositivo"));
   }
   function exportProject() {
     const payload: SavedProject = {
@@ -597,7 +601,7 @@ export default function App() {
     }.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-    flash("File JSON esportato");
+    flash(translate(language, "File JSON esportato"));
   }
   async function importFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -634,9 +638,9 @@ export default function App() {
       setView(metaFor(nextKind).visual ? "canvas" : "rules");
       setError(undefined);
       setResult(undefined);
-      flash("Progetto importato");
+      flash(translate(language, "Progetto importato"));
     } catch {
-      setError("Il file non contiene JSON valido. Controlla il contenuto e riprova.");
+      setError(translate(language, "Il file non contiene JSON valido. Controlla il contenuto e riprova."));
     }
     event.target.value = "";
   }
@@ -700,7 +704,11 @@ export default function App() {
       setSelection(null);
       setResult(undefined);
       setError(undefined);
-      flash(`Modello convertito in ${metaFor(nextKind).shortName}`);
+      flash(
+        translate(language, "Modello convertito in {model}", {
+          model: translate(language, metaFor(nextKind).name),
+        }),
+      );
     } catch (cause) {
       setError(String(cause));
       setSidePanel("run");
@@ -1168,7 +1176,7 @@ function Home({
             <span>⌘ K</span>
           </label>
         </div>
-        <div className="family-tabs" role="tablist" aria-label="Famiglie di modelli">
+        <div className="family-tabs" role="tablist" aria-label={t("Famiglie di modelli")}>
           {families.map((item) => (
             <button
               role="tab"
@@ -1470,14 +1478,14 @@ function Studio(props: StudioProps) {
   return (
     <main className="studio-screen">
       <header className="studio-header">
-        <button className="brand-button" onClick={onHome} aria-label="Torna alla home">
+        <button className="brand-button" onClick={onHome} aria-label={t("Torna alla home")}>
           <Brand />
         </button>
         <span className="header-divider" />
         <span className={`project-chip accent-${model.accent}`}>{model.code}</span>
         <input
           className="project-name"
-          aria-label="Nome progetto"
+          aria-label={t("Nome progetto")}
           value={project.name}
           onChange={(event) => setProject((current) => ({ ...current, name: event.target.value }))}
         />
@@ -2108,7 +2116,7 @@ function Runner({
 
 function TheoryPage({ model, onBack, onOpen }: { model: ModelMeta; onBack: () => void; onOpen: () => void }) {
   const { language, t } = useI18n();
-  const theory = language === "it" ? theories[model.kind] : theoryInEnglish(model.kind);
+  const theory = theoryForLanguage(model.kind, language);
   return (
     <main className="theory-screen">
       <nav className="topbar">
@@ -2209,7 +2217,7 @@ function UpdateDialog({
       }}
     >
       <section className="update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title">
-        <button className="dialog-close" onClick={onClose} aria-label="Chiudi">
+        <button className="dialog-close" onClick={onClose} aria-label={t("Chiudi")}>
           <Icon name="close" />
         </button>
         <span className={`update-symbol status-${status}`}>
