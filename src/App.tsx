@@ -22,6 +22,7 @@ import { detectedLanguage, I18nProvider, languages, translate, useI18n, type Lan
 import { theoryForLanguage } from "./theoryLocalized";
 import {
   definitionFromGraph,
+  normalizePetriWeight,
   transitionFieldsFromEdge,
   transitionLabelFromFields,
   graphFromDefinition,
@@ -341,6 +342,50 @@ const requestKinds: Record<MachineKind, string> = {
   petri: "petri",
 };
 
+function inferMachineKind(value: Definition): MachineKind | undefined {
+  const has = (key: string) => key in value;
+  if (has("expression")) return "regex";
+  if (has("marking")) return "petri";
+  if (has("tape_count")) return "multiTuring";
+  if (has("productions")) return "regularGrammar";
+  if (has("state_outputs")) return "moore";
+  if (has("axiom")) {
+    const rules = Array.isArray(value.rules) ? value.rules : [];
+    const first = rules.find(
+      (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
+    );
+    if (first && "alternatives" in first) return "stochasticLsystem";
+    if (first && ("left_context" in first || "right_context" in first)) return "contextualLsystem";
+    return "lsystem";
+  }
+  if (has("variables") && has("rules")) {
+    const rules = Array.isArray(value.rules) ? value.rules : [];
+    const first = rules.find(
+      (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
+    );
+    return first && Array.isArray(first.left) ? "unrestrictedGrammar" : "cfg";
+  }
+  if (!has("states") || !has("transitions")) return undefined;
+  const transitions = Array.isArray(value.transitions) ? value.transitions : [];
+  const first = transitions.find(
+    (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
+  );
+  if (!first) return "dfa";
+  if ("read" in first || "write" in first) return "turing";
+  if ("pop" in first || "push" in first) return "pda";
+  if ("input" in first || "output" in first) return "mealy";
+  const seen = new Set<string>();
+  const nondeterministic = transitions.some((item) => {
+    if (typeof item !== "object" || item === null) return false;
+    const transition = item as Record<string, unknown>;
+    const key = `${String(transition.from)}\u0000${String(transition.symbol)}`;
+    const duplicate = seen.has(key);
+    seen.add(key);
+    return duplicate || transition.symbol === "ε";
+  });
+  return nondeterministic ? "nfa" : "dfa";
+}
+
 export default function App() {
   const [language, setLanguage] = useState<Language>(detectedLanguage);
   const [screen, setScreen] = useState<Screen>("home");
@@ -647,12 +692,15 @@ export default function App() {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text()) as Partial<SavedProject> & Definition;
-      const nextKind = (
-        typeof parsed.kind === "string" && parsed.kind in examples ? parsed.kind : kind
-      ) as MachineKind;
       const nextDefinition = (
         parsed.definition && typeof parsed.definition === "object" ? parsed.definition : parsed
       ) as Definition;
+      const nextKind = (
+        typeof parsed.kind === "string" && parsed.kind in examples
+          ? parsed.kind
+          : inferMachineKind(nextDefinition)
+      ) as MachineKind | undefined;
+      if (!nextKind) throw new Error("Machine kind could not be inferred from this JSON file.");
       const nextGraph = parsed.graph?.nodes ? parsed.graph : graphFromDefinition(nextKind, nextDefinition);
       const nextProject = {
         id: parsed.id ?? projectId(),
@@ -678,8 +726,12 @@ export default function App() {
       setError(undefined);
       setResult(undefined);
       flash(translate(language, "Progetto importato"));
-    } catch {
-      setError(translate(language, "Il file non contiene JSON valido. Controlla il contenuto e riprova."));
+    } catch (reason) {
+      const message =
+        reason instanceof Error && reason.message.includes("kind")
+          ? "Non riesco a riconoscere il tipo di macchina da questo JSON. Apri prima il modello corretto e riprova."
+          : "Il file non contiene JSON valido. Controlla il contenuto e riprova.";
+      setError(translate(language, message));
     }
     event.target.value = "";
   }
@@ -1856,9 +1908,10 @@ function Graph({
             let ly: number;
             let origin: { x: number; y: number } | undefined;
             if (self) {
-              path = `M ${from.x - 24} ${from.y - 34} C ${from.x - 82} ${from.y - 112}, ${from.x + 82} ${from.y - 112}, ${from.x + 24} ${from.y - 34}`;
+              const lift = Math.max(30, 92 + (edge.bend ?? 0));
+              path = `M ${from.x - 24} ${from.y - 34} C ${from.x - 82} ${from.y - lift}, ${from.x + 82} ${from.y - lift}, ${from.x + 24} ${from.y - 34}`;
               lx = from.x;
-              ly = from.y - 94;
+              ly = from.y - lift;
             } else {
               const dx = to.x - from.x;
               const dy = to.y - from.y;
@@ -1952,7 +2005,8 @@ function TransitionFields({
     Array.isArray(values[key]) ? values[key].map(String).join(" ") : String(values[key] ?? "");
   const listChange = (key: string, raw: string) => update(key, raw.trim() ? raw.trim().split(/\s+/) : []);
   const isPda = model.kind === "pda";
-  const fields =
+  const isMultiTape = model.kind === "multiTuring";
+  const fields: [string, string][] =
     model.kind === "mealy"
       ? [
           ["input", "Ingresso"],
@@ -1962,6 +2016,7 @@ function TransitionFields({
         ? [
             ["read", "Simbolo letto"],
             ["write", "Simbolo scritto"],
+            ["movement", "Movimento"],
           ]
         : model.kind === "multiTuring"
           ? [
@@ -1990,33 +2045,28 @@ function TransitionFields({
         {fields.map(([key, label]) => (
           <label className="rule-field" key={key}>
             <span>{t(label)}</span>
-            {key === "movements" || (model.kind === "turing" && (key === "read" || key === "write")) ? (
-              <select
-                value={textValue(key, key === "movements" ? "Stay" : "□")}
-                onChange={(event) => update(key, event.target.value)}
-              >
-                {key === "movements" ? (
-                  <>
-                    <option>Stay</option>
-                    <option>Left</option>
-                    <option>Right</option>
-                  </>
-                ) : (
-                  <option value={textValue(key)}>{textValue(key) || "□"}</option>
-                )}
+            {key === "movement" ? (
+              <select value={textValue(key, "Stay")} onChange={(event) => update(key, event.target.value)}>
+                <option>Stay</option>
+                <option>Left</option>
+                <option>Right</option>
               </select>
             ) : (
               <input
                 value={
                   isPda && (key === "pop" || key === "push")
                     ? listValue(key)
-                    : textValue(key, key === "input" ? "ε" : "")
+                    : isMultiTape
+                      ? listValue(key)
+                      : textValue(key, key === "input" ? "ε" : "")
                 }
                 placeholder={
-                  isPda && (key === "pop" || key === "push") ? t("Simboli separati da spazio") : undefined
+                  (isPda && (key === "pop" || key === "push")) || isMultiTape
+                    ? t("Simboli separati da spazio")
+                    : undefined
                 }
                 onChange={(event) =>
-                  isPda && (key === "pop" || key === "push")
+                  (isPda && (key === "pop" || key === "push")) || isMultiTape
                     ? listChange(key, event.target.value)
                     : update(key, event.target.value)
                 }
@@ -2028,6 +2078,31 @@ function TransitionFields({
     </div>
   );
 }
+
+function PetriArcField({
+  edge,
+  onUpdate,
+}: {
+  edge: GraphEdge;
+  onUpdate: (patch: Partial<GraphEdge>) => void;
+}) {
+  const { t } = useI18n();
+  const value = normalizePetriWeight(edge.label);
+  return (
+    <label className="rule-field petri-weight-field">
+      <span>{t("Peso dell'arco")}</span>
+      <input
+        type="number"
+        min="1"
+        step="1"
+        value={value}
+        onChange={(event) => onUpdate({ label: String(normalizePetriWeight(event.target.value)) })}
+      />
+      <small>{t("Inserisci un numero intero positivo.")}</small>
+    </label>
+  );
+}
+
 function Properties({
   model,
   node,
@@ -2132,7 +2207,11 @@ function Properties({
             <Icon name="arrow" />
             <span>{edge?.to}</span>
           </div>
-          <TransitionFields model={model} edge={edge!} onUpdate={onUpdateEdge} />
+          {model.kind === "petri" ? (
+            <PetriArcField edge={edge!} onUpdate={onUpdateEdge} />
+          ) : (
+            <TransitionFields model={model} edge={edge!} onUpdate={onUpdateEdge} />
+          )}
           <label className="bend-control">
             <span>{t("Curvatura della freccia")}</span>
             <input

@@ -49,8 +49,8 @@ function position(index: number, total: number): Point {
 }
 
 export function transitionFieldsFromEdge(kind: MachineKind, edge: GraphEdge): Record<string, unknown> {
-  if (edge.fields) return { ...edge.fields };
-  return transitionFromEdge(kind, edge);
+  if (edge.fields && edge.label === transitionLabel(kind, edge.fields)) return { ...edge.fields };
+  return transitionFromEdge(kind, { ...edge, fields: undefined });
 }
 
 export function transitionLabelFromFields(kind: MachineKind, fields: Record<string, unknown>): string {
@@ -99,7 +99,7 @@ export function graphFromDefinition(kind: MachineKind, definition: Definition): 
           id: `in:${transitionIndex}:${arcIndex}`,
           from: `place:${str(arc.place)}`,
           to: eventId,
-          label: String(arc.weight ?? 1),
+          label: String(normalizePetriWeight(arc.weight)),
         }),
       );
       records(transition.outputs).forEach((arc, arcIndex) =>
@@ -107,7 +107,7 @@ export function graphFromDefinition(kind: MachineKind, definition: Definition): 
           id: `out:${transitionIndex}:${arcIndex}`,
           from: eventId,
           to: `place:${str(arc.place)}`,
-          label: String(arc.weight ?? 1),
+          label: String(normalizePetriWeight(arc.weight)),
         }),
       );
     });
@@ -140,6 +140,7 @@ export function graphFromDefinition(kind: MachineKind, definition: Definition): 
     from: str(transition.from),
     to: str(transition.to),
     label: transitionLabel(kind, transition),
+    fields: { ...transition },
   }));
   return { nodes, edges };
 }
@@ -153,20 +154,33 @@ export function syncGraphFromDefinition(
   const positions = new Map(current.nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
   return {
     nodes: next.nodes.map((node) => ({ ...node, ...(positions.get(node.id) ?? {}) })),
-    edges: next.edges.map((edge, index) => ({
-      ...edge,
-      bend:
-        current.edges.find(
-          (item) => item.from === edge.from && item.to === edge.to && item.label === edge.label,
-        )?.bend ?? current.edges[index]?.bend,
-    })),
+    edges: preserveEdgeBends(next.edges, current.edges),
   };
+}
+
+function edgeMatchKey(edge: GraphEdge): string {
+  return `${edge.from}\u0000${edge.to}\u0000${edge.label}`;
+}
+
+function preserveEdgeBends(next: GraphEdge[], current: GraphEdge[]): GraphEdge[] {
+  const matches = new Map<string, GraphEdge[]>();
+  current.forEach((edge) => {
+    const list = matches.get(edgeMatchKey(edge)) ?? [];
+    list.push(edge);
+    matches.set(edgeMatchKey(edge), list);
+  });
+  return next.map((edge) => {
+    const candidates = matches.get(edgeMatchKey(edge));
+    const match = candidates?.shift();
+    return match ? { ...edge, bend: match.bend } : edge;
+  });
 }
 
 const splitPair = (label: string) => label.split("/").map((part) => part.trim());
 
 function transitionFromEdge(kind: MachineKind, edge: GraphEdge): Record<string, unknown> {
   const base = { from: edge.from, to: edge.to };
+  if (edge.fields && edge.label === transitionLabel(kind, edge.fields)) return { ...base, ...edge.fields };
   if (kind === "mealy") {
     const [input = "ε", output = "ε"] = splitPair(edge.label);
     return { ...base, input, output };
@@ -217,13 +231,13 @@ export function definitionFromGraph(
           .map((edge) => ({
             place:
               graph.nodes.find((node) => node.id === edge.from)?.label ?? edge.from.replace(/^place:/, ""),
-            weight: Number(edge.label) || 1,
+            weight: normalizePetriWeight(edge.label),
           })),
         outputs: graph.edges
           .filter((edge) => edge.from === event.id)
           .map((edge) => ({
             place: graph.nodes.find((node) => node.id === edge.to)?.label ?? edge.to.replace(/^place:/, ""),
-            weight: Number(edge.label) || 1,
+            weight: normalizePetriWeight(edge.label),
           })),
       })),
     };
@@ -252,6 +266,11 @@ export function definitionFromGraph(
       }),
     );
   return next;
+}
+
+export function normalizePetriWeight(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(String(value).trim());
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
 export function projectId(): string {

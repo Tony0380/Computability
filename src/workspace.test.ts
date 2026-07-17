@@ -3,6 +3,8 @@ import { examples } from "./domain";
 import {
   definitionFromGraph,
   graphFromDefinition,
+  normalizePetriWeight,
+  syncGraphFromDefinition,
   transitionFieldsFromEdge,
   transitionLabelFromFields,
   upsertWorkspaceTab,
@@ -29,14 +31,51 @@ describe("visual workspace conversion", () => {
     const graph = graphFromDefinition("mealy", examples.mealy);
     expect(graph.edges[0].label).toBe("1 / odd");
 
-    graph.edges[0].label = "x / y";
+    graph.edges[0] = {
+      ...graph.edges[0],
+      fields: { from: "even", input: "x", output: "a/b", to: "odd" },
+      label: transitionLabelFromFields("mealy", { input: "x", output: "a/b" }),
+    };
     const restored = definitionFromGraph("mealy", examples.mealy, graph);
     expect((restored.transitions as Record<string, unknown>[])[0]).toEqual({
       from: "even",
       to: "odd",
       input: "x",
+      output: "a/b",
+    });
+
+    const legacy = graphFromDefinition("mealy", examples.mealy);
+    legacy.edges[0] = { ...legacy.edges[0], fields: undefined, label: "x / y" };
+    const legacyRestored = definitionFromGraph("mealy", examples.mealy, legacy);
+    expect((legacyRestored.transitions as Record<string, unknown>[])[0]).toMatchObject({
+      input: "x",
       output: "y",
     });
+  });
+
+  it("keeps multi-tape semantic values as arrays", () => {
+    const graph = graphFromDefinition("multiTuring", examples.multiTuring);
+    const edge = graph.edges[0];
+    const fields = { ...transitionFieldsFromEdge("multiTuring", edge), read: ["x", "y"] };
+    graph.edges[0] = { ...edge, fields, label: transitionLabelFromFields("multiTuring", fields) };
+    const transition = (
+      definitionFromGraph("multiTuring", examples.multiTuring, graph).transitions as Record<string, unknown>[]
+    )[0];
+    expect(transition.read).toEqual(["x", "y"]);
+    expect(Array.isArray(transition.movements)).toBe(true);
+  });
+
+  it("matches bends one-to-one and never reuses a bend after reordering", () => {
+    const graph = graphFromDefinition("dfa", examples.dfa);
+    graph.edges[0].bend = 72;
+    graph.edges[1].bend = -48;
+    const reordered = {
+      ...examples.dfa,
+      transitions: [...(examples.dfa.transitions as Record<string, unknown>[])].slice(0, 2).reverse(),
+    };
+    const next = syncGraphFromDefinition("dfa", reordered, graph);
+    expect(next.edges[0].bend).toBe(-48);
+    expect(next.edges[1].bend).toBe(72);
   });
 
   it("keeps transition operators out of editable semantic fields", () => {
@@ -57,6 +96,9 @@ describe("visual workspace conversion", () => {
       { id: "out:0:0", from: "event:complete", to: "place:done", label: "1" },
     ]);
     expect(definitionFromGraph("petri", examples.petri, graph)).toEqual(examples.petri);
+    expect(normalizePetriWeight("0")).toBe(1);
+    expect(normalizePetriWeight("abc")).toBe(1);
+    expect(normalizePetriWeight("3")).toBe(3);
   });
 });
 

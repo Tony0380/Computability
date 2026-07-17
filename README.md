@@ -51,13 +51,19 @@ the available model families and links each model to its formal theory.
 ![Computability model catalogue](docs/screenshots/catalogue.png)
 
 The workspace supports visual construction of state-based machines, labelled
-transitions, semantic state roles, and execution inspection.
+transitions, semantic state roles, and execution inspection. Transition
+properties are edited through separate guided fields: the UI inserts arrows,
+separators, and machine-specific operators automatically. Select an edge to
+adjust its bend, including self-loops; the bend is saved with the workspace.
 
 ![DFA visual workspace](docs/screenshots/automaton-canvas.png)
 
 Structured models use editors that match their notation. Grammar symbols are
 entered as individual removable fields and productions update the model as
-they are edited.
+they are edited. Multi-tape values remain arrays, Turing movements use a fixed
+choice list, and Petri arc weights accept only positive integers. JSON exports
+also preserve semantic transition fields, while legacy definitions without a
+`kind` field are detected from their structure when possible.
 
 ![Context-free grammar rule editor](docs/screenshots/grammar-rule-editor.png)
 
