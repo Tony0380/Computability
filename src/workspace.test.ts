@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { examples } from "./domain";
-import { definitionFromGraph, graphFromDefinition, upsertWorkspaceTab, type WorkspaceTab } from "./workspace";
+import {
+  definitionFromGraph,
+  graphFromDefinition,
+  transitionFieldsFromEdge,
+  transitionLabelFromFields,
+  upsertWorkspaceTab,
+  type WorkspaceTab,
+} from "./workspace";
 
 describe("visual workspace conversion", () => {
   it("preserves DFA states, roles and transitions", () => {
@@ -32,6 +39,14 @@ describe("visual workspace conversion", () => {
     });
   });
 
+  it("keeps transition operators out of editable semantic fields", () => {
+    const graph = graphFromDefinition("mealy", examples.mealy);
+    const edge = graph.edges[0];
+    expect(transitionFieldsFromEdge("mealy", edge)).toMatchObject({ input: "1", output: "odd" });
+    expect(transitionLabelFromFields("mealy", { input: "x", output: "y" })).toBe("x / y");
+    edge.bend = -64;
+    expect(edge.bend).toBe(-64);
+  });
   it("renders Petri places, events and weighted arcs", () => {
     const graph = graphFromDefinition("petri", examples.petri);
 

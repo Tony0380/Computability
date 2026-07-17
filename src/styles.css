@@ -3503,3 +3503,60 @@ kbd {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Guided transition inspector */
+.transition-fields {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+.fixed-connection {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  width: fit-content;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 700;
+}
+.fixed-connection b {
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+.guided-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.transition-field-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+.transition-field-grid .rule-field {
+  gap: 0.25rem;
+}
+.transition-field-grid input,
+.transition-field-grid select {
+  min-height: 2.25rem;
+}
+.bend-control {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+}
+.bend-control input[type="range"] {
+  accent-color: var(--accent);
+}
+.bend-control small {
+  color: var(--muted);
+}
+.bend-reset {
+  width: 100%;
+  margin-top: 0.45rem;
+}

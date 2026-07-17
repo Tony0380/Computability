@@ -7,7 +7,14 @@ export type GraphNode = Point & {
   role: "normal" | "start" | "accept" | "start-accept" | "place" | "event";
   tokens?: number;
 };
-export type GraphEdge = { id: string; from: string; to: string; label: string };
+export type GraphEdge = {
+  id: string;
+  from: string;
+  to: string;
+  label: string;
+  bend?: number;
+  fields?: Record<string, unknown>;
+};
 export type WorkspaceGraph = { nodes: GraphNode[]; edges: GraphEdge[] };
 
 export type SavedProject = {
@@ -39,6 +46,15 @@ const records = (value: unknown): Record<string, unknown>[] =>
 function position(index: number, total: number): Point {
   const columns = Math.max(2, Math.ceil(Math.sqrt(total)));
   return { x: 170 + (index % columns) * 230, y: 155 + Math.floor(index / columns) * 190 };
+}
+
+export function transitionFieldsFromEdge(kind: MachineKind, edge: GraphEdge): Record<string, unknown> {
+  if (edge.fields) return { ...edge.fields };
+  return transitionFromEdge(kind, edge);
+}
+
+export function transitionLabelFromFields(kind: MachineKind, fields: Record<string, unknown>): string {
+  return transitionLabel(kind, fields);
 }
 
 function transitionLabel(kind: MachineKind, transition: Record<string, unknown>): string {
@@ -137,7 +153,13 @@ export function syncGraphFromDefinition(
   const positions = new Map(current.nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
   return {
     nodes: next.nodes.map((node) => ({ ...node, ...(positions.get(node.id) ?? {}) })),
-    edges: next.edges,
+    edges: next.edges.map((edge, index) => ({
+      ...edge,
+      bend:
+        current.edges.find(
+          (item) => item.from === edge.from && item.to === edge.to && item.label === edge.label,
+        )?.bend ?? current.edges[index]?.bend,
+    })),
   };
 }
 

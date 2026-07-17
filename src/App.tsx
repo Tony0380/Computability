@@ -22,6 +22,8 @@ import { detectedLanguage, I18nProvider, languages, translate, useI18n, type Lan
 import { theoryForLanguage } from "./theoryLocalized";
 import {
   definitionFromGraph,
+  transitionFieldsFromEdge,
+  transitionLabelFromFields,
   graphFromDefinition,
   persistProject,
   persistWorkspaceTabs,
@@ -901,12 +903,12 @@ export default function App() {
     }));
     setSelection({ type: "node", id: nextId });
   }
-  function updateEdge(label: string) {
-    if (selectedEdge)
-      setGraph((current) => ({
-        ...current,
-        edges: current.edges.map((edge) => (edge.id === selectedEdge.id ? { ...edge, label } : edge)),
-      }));
+  function updateEdge(patch: Partial<GraphEdge>) {
+    if (!selectedEdge) return;
+    setGraph((current) => ({
+      ...current,
+      edges: current.edges.map((edge) => (edge.id === selectedEdge.id ? { ...edge, ...patch } : edge)),
+    }));
   }
   function removeSelection() {
     if (!selection) return;
@@ -1438,7 +1440,7 @@ type StudioProps = {
   onPointerUp: () => void;
   onUpdateNode: (patch: Partial<GraphNode>) => void;
   onRenameNode: (id: string) => void;
-  onUpdateEdge: (label: string) => void;
+  onUpdateEdge: (patch: Partial<GraphEdge>) => void;
   onRemove: () => void;
   onRun: () => void;
   onAction: (action: ModelAction) => void;
@@ -1870,7 +1872,7 @@ function Graph({
               origin = { x: sx, y: sy };
               const ex = to.x - ux * endRadius;
               const ey = to.y - uy * endRadius;
-              const curve = Math.min(42, Math.max(22, distance * 0.13));
+              const curve = edge.bend ?? Math.min(42, Math.max(22, distance * 0.13));
               const cx = (from.x + to.x) / 2 - uy * curve;
               const cy = (from.y + to.y) / 2 + ux * curve;
               path = `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
@@ -1929,6 +1931,103 @@ function Graph({
   );
 }
 
+function TransitionFields({
+  model,
+  edge,
+  onUpdate,
+}: {
+  model: ModelMeta;
+  edge: GraphEdge;
+  onUpdate: (patch: Partial<GraphEdge>) => void;
+}) {
+  const { t } = useI18n();
+  const values = transitionFieldsFromEdge(model.kind, edge);
+  const update = (key: string, value: unknown) => {
+    const fields = { ...values, [key]: value };
+    onUpdate({ fields, label: transitionLabelFromFields(model.kind, fields) });
+  };
+  const textValue = (key: string, fallback = "") =>
+    Array.isArray(values[key]) ? values[key].map(String).join(" ") : String(values[key] ?? fallback);
+  const listValue = (key: string) =>
+    Array.isArray(values[key]) ? values[key].map(String).join(" ") : String(values[key] ?? "");
+  const listChange = (key: string, raw: string) => update(key, raw.trim() ? raw.trim().split(/\s+/) : []);
+  const isPda = model.kind === "pda";
+  const fields =
+    model.kind === "mealy"
+      ? [
+          ["input", "Ingresso"],
+          ["output", "Uscita"],
+        ]
+      : model.kind === "turing"
+        ? [
+            ["read", "Simbolo letto"],
+            ["write", "Simbolo scritto"],
+          ]
+        : model.kind === "multiTuring"
+          ? [
+              ["read", "Simboli letti"],
+              ["write", "Simboli scritti"],
+              ["movements", "Movimenti"],
+            ]
+          : isPda
+            ? [
+                ["input", "Ingresso"],
+                ["pop", "Rimuovi dalla pila"],
+                ["push", "Inserisci nella pila"],
+              ]
+            : [["symbol", "Simbolo"]];
+  return (
+    <div className="transition-fields">
+      <div className="fixed-connection" aria-label={t("Collegamento fisso")}>
+        <span>{edge.from}</span>
+        <b aria-hidden="true">→</b>
+        <span>{edge.to}</span>
+      </div>
+      <p className="guided-hint">
+        {t("Compila solo i valori: gli operatori e la freccia sono inseriti automaticamente.")}
+      </p>
+      <div className="transition-field-grid">
+        {fields.map(([key, label]) => (
+          <label className="rule-field" key={key}>
+            <span>{t(label)}</span>
+            {key === "movements" || (model.kind === "turing" && (key === "read" || key === "write")) ? (
+              <select
+                value={textValue(key, key === "movements" ? "Stay" : "□")}
+                onChange={(event) => update(key, event.target.value)}
+              >
+                {key === "movements" ? (
+                  <>
+                    <option>Stay</option>
+                    <option>Left</option>
+                    <option>Right</option>
+                  </>
+                ) : (
+                  <option value={textValue(key)}>{textValue(key) || "□"}</option>
+                )}
+              </select>
+            ) : (
+              <input
+                value={
+                  isPda && (key === "pop" || key === "push")
+                    ? listValue(key)
+                    : textValue(key, key === "input" ? "ε" : "")
+                }
+                placeholder={
+                  isPda && (key === "pop" || key === "push") ? t("Simboli separati da spazio") : undefined
+                }
+                onChange={(event) =>
+                  isPda && (key === "pop" || key === "push")
+                    ? listChange(key, event.target.value)
+                    : update(key, event.target.value)
+                }
+              />
+            )}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 function Properties({
   model,
   node,
@@ -1943,7 +2042,7 @@ function Properties({
   edge?: GraphEdge;
   onUpdateNode: (patch: Partial<GraphNode>) => void;
   onRenameNode: (id: string) => void;
-  onUpdateEdge: (label: string) => void;
+  onUpdateEdge: (patch: Partial<GraphEdge>) => void;
   onRemove: () => void;
 }) {
   const { t } = useI18n();
@@ -2033,19 +2132,26 @@ function Properties({
             <Icon name="arrow" />
             <span>{edge?.to}</span>
           </div>
-          <label>
-            {t("Etichetta della transizione")}
-            <input value={edge?.label ?? ""} onChange={(event) => onUpdateEdge(event.target.value)} />
-            <small>
-              {model.kind === "mealy"
-                ? "Formato: input / output"
-                : model.kind === "turing"
-                  ? "Formato: letto → scritto, movimento"
-                  : model.kind === "pda"
-                    ? "Formato: input, pop → push"
-                    : "Usa ε per una transizione vuota"}
-            </small>
+          <TransitionFields model={model} edge={edge!} onUpdate={onUpdateEdge} />
+          <label className="bend-control">
+            <span>{t("Curvatura della freccia")}</span>
+            <input
+              type="range"
+              min="-160"
+              max="160"
+              step="4"
+              value={edge!.bend ?? 0}
+              onChange={(event) => onUpdateEdge({ bend: Number(event.target.value) })}
+            />
+            <small>{edge!.bend === undefined ? t("Automatica") : String(edge!.bend) + " px"}</small>
           </label>
+          <button
+            type="button"
+            className="secondary-button bend-reset"
+            onClick={() => onUpdateEdge({ bend: undefined })}
+          >
+            {t("Ripristina curvatura automatica")}
+          </button>
         </>
       )}
       <button className="danger-button" onClick={onRemove}>
