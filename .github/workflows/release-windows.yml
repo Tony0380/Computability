@@ -102,7 +102,7 @@ jobs:
 
   package-macos-x86:
     name: Package macOS Intel DMG
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v7
         with:
@@ -120,7 +120,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run build:app -- --target x86_64-apple-darwin --bundles dmg
+        run: npm run build:app -- --target x86_64-apple-darwin --bundles app,dmg
       - name: Collect macOS Intel asset
         shell: bash
         run: |
@@ -129,8 +129,12 @@ jobs:
           mkdir -p release-assets
           dmg=$(find target -type f -path '*/bundle/dmg/*.dmg' | head -n 1)
           test -n "$dmg"
+          archive=$(find target -type f -name '*.app.tar.gz' | head -n 1)
+          test -n "$archive"
           cp "$dmg" "release-assets/Computability_${version}_macos-x86_64.dmg"
-          cp "$dmg.sig" "release-assets/Computability_${version}_macos-x86_64.dmg.sig"
+          cp "$archive" "release-assets/Computability_${version}_macos-x86_64.app.tar.gz"
+          cp "$archive.sig" "release-assets/Computability_${version}_macos-x86_64.app.tar.gz.sig"
+
       - uses: actions/upload-artifact@v7
         with:
           name: Computability-macOS-x86-${{ inputs.tag }}
@@ -157,7 +161,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npm run build:app -- --target aarch64-apple-darwin --bundles dmg
+        run: npm run build:app -- --target aarch64-apple-darwin --bundles app,dmg
       - name: Collect macOS Apple Silicon asset
         shell: bash
         run: |
@@ -166,8 +170,12 @@ jobs:
           mkdir -p release-assets
           dmg=$(find target -type f -path '*/bundle/dmg/*.dmg' | head -n 1)
           test -n "$dmg"
+          archive=$(find target -type f -name '*.app.tar.gz' | head -n 1)
+          test -n "$archive"
           cp "$dmg" "release-assets/Computability_${version}_macos-aarch64.dmg"
-          cp "$dmg.sig" "release-assets/Computability_${version}_macos-aarch64.dmg.sig"
+          cp "$archive" "release-assets/Computability_${version}_macos-aarch64.app.tar.gz"
+          cp "$archive.sig" "release-assets/Computability_${version}_macos-aarch64.app.tar.gz.sig"
+
       - uses: actions/upload-artifact@v7
         with:
           name: Computability-macOS-arm-${{ inputs.tag }}

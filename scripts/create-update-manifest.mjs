@@ -1,5 +1,5 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 const args = new Map();
 for (let index = 2; index < process.argv.length; index += 2)
@@ -14,14 +14,14 @@ if (!tag || !version) throw new Error("Usage: node create-update-manifest.mjs --
 const files = await readdir(assetsDir, { recursive: true });
 const platforms = {};
 const candidates = files
-  .filter((file) => /\.(exe|AppImage|dmg)$/i.test(file))
+  .filter((file) => /\.(exe|AppImage|app\.tar\.gz)$/i.test(file))
   .map((file) => resolve(assetsDir, file));
 
 function platformFor(file) {
   const name = basename(file).toLowerCase();
   if (name.endsWith(".exe")) return "windows-x86_64";
   if (name.endsWith(".appimage")) return "linux-x86_64";
-  if (name.endsWith(".dmg"))
+  if (name.endsWith(".app.tar.gz"))
     return name.includes("aarch64") || name.includes("arm64") ? "darwin-aarch64" : "darwin-x86_64";
   return undefined;
 }
