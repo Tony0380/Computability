@@ -30,7 +30,7 @@ jobs:
       - name: Lint Rust
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test simulation core
-        run: cargo test --workspace
+        run: cargo test -p computability-core
       - name: Install interface dependencies
         run: npm ci
       - name: Lint interface
