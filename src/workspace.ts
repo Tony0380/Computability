@@ -4,8 +4,10 @@ export type Point = { x: number; y: number };
 export type GraphNode = Point & {
   id: string;
   label: string;
-  role: "normal" | "start" | "accept" | "start-accept" | "place" | "event";
+  role: "normal" | "start" | "accept" | "start-accept" | "reject" | "place" | "event";
   tokens?: number;
+  /** Semantic Moore output. Labels remain display-only. */
+  output?: string;
 };
 export type GraphEdge = {
   id: string;
@@ -13,6 +15,8 @@ export type GraphEdge = {
   to: string;
   label: string;
   bend?: number;
+  /** Stable layout identity, independent from the transition label. */
+  layoutId?: string;
   fields?: Record<string, unknown>;
 };
 export type WorkspaceGraph = { nodes: GraphNode[]; edges: GraphEdge[] };
@@ -35,6 +39,25 @@ const openWorkspacesKey = "computability.open-workspaces";
 
 const stateKinds = new Set<MachineKind>(["dfa", "nfa", "mealy", "moore", "pda", "turing", "multiTuring"]);
 export const supportsStateCanvas = (kind: MachineKind) => stateKinds.has(kind);
+const allKinds = new Set<MachineKind>([
+  "dfa",
+  "nfa",
+  "mealy",
+  "moore",
+  "pda",
+  "turing",
+  "multiTuring",
+  "regularGrammar",
+  "cfg",
+  "unrestrictedGrammar",
+  "regex",
+  "lsystem",
+  "contextualLsystem",
+  "stochasticLsystem",
+  "petri",
+]);
+export const isMachineKind = (value: unknown): value is MachineKind =>
+  typeof value === "string" && allKinds.has(value as MachineKind);
 
 const asStrings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String) : []);
 const str = (value: unknown, fallback = ""): string => (typeof value === "string" ? value : fallback);
@@ -42,6 +65,12 @@ const records = (value: unknown): Record<string, unknown>[] =>
   Array.isArray(value)
     ? value.filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
     : [];
+const semanticFields = (transition: Record<string, unknown>): Record<string, unknown> => {
+  const fields = { ...transition };
+  delete fields.from;
+  delete fields.to;
+  return fields;
+};
 
 function position(index: number, total: number): Point {
   const columns = Math.max(2, Math.ceil(Math.sqrt(total)));
@@ -118,13 +147,15 @@ export function graphFromDefinition(kind: MachineKind, definition: Definition): 
   const states = asStrings(definition.states);
   const start = str(definition.start_state);
   const accepts = new Set(asStrings(definition.accepting_states));
+  const rejects = new Set(asStrings(definition.rejecting_states));
   const stateOutputs =
     typeof definition.state_outputs === "object" && definition.state_outputs !== null
       ? (definition.state_outputs as Record<string, unknown>)
       : {};
   const nodes = states.map((id, index): GraphNode => ({
     id,
-    label: kind === "moore" && stateOutputs[id] !== undefined ? `${id} / ${String(stateOutputs[id])}` : id,
+    label: id,
+    output: kind === "moore" && stateOutputs[id] !== undefined ? String(stateOutputs[id]) : undefined,
     role:
       id === start && accepts.has(id)
         ? "start-accept"
@@ -132,7 +163,9 @@ export function graphFromDefinition(kind: MachineKind, definition: Definition): 
           ? "start"
           : accepts.has(id)
             ? "accept"
-            : "normal",
+            : rejects.has(id)
+              ? "reject"
+              : "normal",
     ...position(index, states.length),
   }));
   const edges = records(definition.transitions).map((transition, index): GraphEdge => ({
@@ -140,7 +173,8 @@ export function graphFromDefinition(kind: MachineKind, definition: Definition): 
     from: str(transition.from),
     to: str(transition.to),
     label: transitionLabel(kind, transition),
-    fields: { ...transition },
+    layoutId: `transition:${index}`,
+    fields: semanticFields(transition),
   }));
   return { nodes, edges };
 }
@@ -158,11 +192,71 @@ export function syncGraphFromDefinition(
   };
 }
 
+export function isWorkspaceGraph(value: unknown): value is WorkspaceGraph {
+  if (!value || typeof value !== "object") return false;
+  const graph = value as Partial<WorkspaceGraph>;
+  return (
+    Array.isArray(graph.nodes) &&
+    Array.isArray(graph.edges) &&
+    graph.nodes.every(
+      (node) =>
+        node &&
+        typeof node === "object" &&
+        typeof node.id === "string" &&
+        typeof node.label === "string" &&
+        typeof node.x === "number" &&
+        typeof node.y === "number",
+    ) &&
+    graph.edges.every(
+      (edge) =>
+        edge &&
+        typeof edge === "object" &&
+        typeof edge.id === "string" &&
+        typeof edge.from === "string" &&
+        typeof edge.to === "string" &&
+        typeof edge.label === "string",
+    )
+  );
+}
+
+export function isSavedProject(value: unknown): value is SavedProject {
+  return migrateSavedProject(value) !== undefined;
+}
+
+/** Migrates pre-canvas projects while rejecting malformed or unknown data. */
+export function migrateSavedProject(value: unknown): SavedProject | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const project = value as Partial<SavedProject>;
+  if (
+    typeof project.id !== "string" ||
+    typeof project.name !== "string" ||
+    !isMachineKind(project.kind) ||
+    !project.definition ||
+    typeof project.definition !== "object" ||
+    Array.isArray(project.definition) ||
+    typeof project.updatedAt !== "string"
+  )
+    return undefined;
+  const definition = project.definition as Definition;
+  const graph = isWorkspaceGraph(project.graph)
+    ? syncGraphFromDefinition(project.kind, definition, project.graph)
+    : graphFromDefinition(project.kind, definition);
+  return {
+    id: project.id,
+    name: project.name,
+    kind: project.kind,
+    definition,
+    graph,
+    updatedAt: project.updatedAt,
+  };
+}
+
 function edgeMatchKey(edge: GraphEdge): string {
   return `${edge.from}\u0000${edge.to}\u0000${edge.label}`;
 }
 
 function preserveEdgeBends(next: GraphEdge[], current: GraphEdge[]): GraphEdge[] {
+  const byLayoutId = new Map(current.filter((edge) => edge.layoutId).map((edge) => [edge.layoutId, edge]));
   const matches = new Map<string, GraphEdge[]>();
   current.forEach((edge) => {
     const list = matches.get(edgeMatchKey(edge)) ?? [];
@@ -172,7 +266,11 @@ function preserveEdgeBends(next: GraphEdge[], current: GraphEdge[]): GraphEdge[]
   return next.map((edge) => {
     const candidates = matches.get(edgeMatchKey(edge));
     const match = candidates?.shift();
-    return match ? { ...edge, bend: match.bend } : edge;
+    if (match) return { ...edge, bend: match.bend, layoutId: match.layoutId ?? edge.layoutId };
+    const byId = edge.layoutId ? byLayoutId.get(edge.layoutId) : undefined;
+    return byId && byId.from === edge.from && byId.to === edge.to
+      ? { ...edge, bend: byId.bend, layoutId: byId.layoutId }
+      : edge;
   });
 }
 
@@ -180,7 +278,7 @@ const splitPair = (label: string) => label.split("/").map((part) => part.trim())
 
 function transitionFromEdge(kind: MachineKind, edge: GraphEdge): Record<string, unknown> {
   const base = { from: edge.from, to: edge.to };
-  if (edge.fields && edge.label === transitionLabel(kind, edge.fields)) return { ...base, ...edge.fields };
+  if (edge.fields && edge.label === transitionLabel(kind, edge.fields)) return { ...edge.fields, ...base };
   if (kind === "mealy") {
     const [input = "ε", output = "ε"] = splitPair(edge.label);
     return { ...base, input, output };
@@ -251,6 +349,7 @@ export function definitionFromGraph(
   const accepting = graph.nodes
     .filter((node) => node.role === "accept" || node.role === "start-accept")
     .map((node) => node.id);
+  const rejecting = graph.nodes.filter((node) => node.role === "reject").map((node) => node.id);
   const next: Definition = {
     ...original,
     states,
@@ -258,13 +357,9 @@ export function definitionFromGraph(
     transitions: graph.edges.map((edge) => transitionFromEdge(kind, edge)),
   };
   if ("accepting_states" in original || !["mealy", "moore"].includes(kind)) next.accepting_states = accepting;
+  if ("rejecting_states" in original) next.rejecting_states = rejecting;
   if (kind === "moore")
-    next.state_outputs = Object.fromEntries(
-      graph.nodes.map((node) => {
-        const [name, output = ""] = splitPair(node.label);
-        return [node.id, output || name];
-      }),
-    );
+    next.state_outputs = Object.fromEntries(graph.nodes.map((node) => [node.id, node.output ?? ""]));
   return next;
 }
 
@@ -279,7 +374,10 @@ export function projectId(): string {
 
 export function readProjects(): SavedProject[] {
   try {
-    return JSON.parse(localStorage.getItem("computability.projects") ?? "[]") as SavedProject[];
+    const parsed: unknown = JSON.parse(localStorage.getItem("computability.projects") ?? "[]");
+    return Array.isArray(parsed)
+      ? parsed.map(migrateSavedProject).filter((item): item is SavedProject => Boolean(item))
+      : [];
   } catch {
     return [];
   }
@@ -287,25 +385,36 @@ export function readProjects(): SavedProject[] {
 
 export function persistProject(project: SavedProject): SavedProject[] {
   const projects = readProjects().filter((item) => item.id !== project.id);
-  const next = [project, ...projects].slice(0, 12);
+  // Saved projects are an archive, not a recent-items list: never evict user data.
+  const next = [project, ...projects];
   localStorage.setItem("computability.projects", JSON.stringify(next));
   return next;
 }
 
 export function readWorkspaceTabs(): WorkspaceTab[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(openWorkspacesKey) ?? "[]") as WorkspaceTab[];
-    return parsed.filter((item) => item.id && item.kind && item.definition && item.graph).slice(0, 12);
+    const parsed: unknown = JSON.parse(localStorage.getItem(openWorkspacesKey) ?? "[]");
+    return Array.isArray(parsed)
+      ? parsed
+          .filter(
+            (item): item is WorkspaceTab =>
+              migrateSavedProject(item) !== undefined &&
+              typeof (item as Partial<WorkspaceTab>).input === "string" &&
+              ((item as Partial<WorkspaceTab>).view === "canvas" ||
+                (item as Partial<WorkspaceTab>).view === "rules"),
+          )
+          .map((item) => ({ ...migrateSavedProject(item)!, input: item.input, view: item.view }))
+      : [];
   } catch {
     return [];
   }
 }
 
 export function persistWorkspaceTabs(tabs: WorkspaceTab[]): void {
-  localStorage.setItem(openWorkspacesKey, JSON.stringify(tabs.slice(0, 12)));
+  localStorage.setItem(openWorkspacesKey, JSON.stringify(tabs));
 }
 
 export function upsertWorkspaceTab(tabs: WorkspaceTab[], tab: WorkspaceTab): WorkspaceTab[] {
   const exists = tabs.some((item) => item.id === tab.id);
-  return (exists ? tabs.map((item) => (item.id === tab.id ? tab : item)) : [...tabs, tab]).slice(-12);
+  return exists ? tabs.map((item) => (item.id === tab.id ? tab : item)) : [...tabs, tab];
 }

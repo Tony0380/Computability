@@ -75,6 +75,10 @@ fn default_decomposition_limit() -> usize {
     500
 }
 
+const MAX_DECOMPOSITIONS: usize = 500;
+const MAX_PUMP_EXPONENT: usize = 64;
+const MAX_PUMPED_WORD_SYMBOLS: usize = 10_000;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PumpedWord {
     pub exponent: usize,
@@ -126,15 +130,26 @@ fn exponents(request: &PumpingRequest) -> Vec<usize> {
     values
 }
 
+fn validate_pumping_request(request: &PumpingRequest) -> Result<(), SimulationError> {
+    if request.pumping_length == 0 {
+        return Err(SimulationError::InvalidExpression("the pumping length must be positive".into()));
+    }
+    if request.word.len() > MAX_PUMPED_WORD_SYMBOLS {
+        return Err(SimulationError::InvalidExpression("the witness word exceeds the supported size".into()));
+    }
+    if request.exponents.iter().any(|exponent| *exponent > MAX_PUMP_EXPONENT) {
+        return Err(SimulationError::InvalidExpression("pumping exponents must not exceed 64".into()));
+    }
+    Ok(())
+}
+
 fn repeat(symbols: &[String], count: usize) -> Vec<String> {
     (0..count).flat_map(|_| symbols.iter().cloned()).collect()
 }
 
 pub fn analyze_regular_pumping(request: &PumpingRequest) -> Result<RegularPumpingReport, SimulationError> {
-    if request.pumping_length == 0 {
-        return Err(SimulationError::InvalidExpression("the pumping length must be positive".into()));
-    }
-    let maximum = request.max_decompositions.max(1);
+    validate_pumping_request(request)?;
+    let maximum = request.max_decompositions.clamp(1, MAX_DECOMPOSITIONS);
     let mut decompositions = Vec::new();
     let mut truncated = false;
     if request.word.len() >= request.pumping_length {
@@ -173,10 +188,8 @@ pub fn analyze_regular_pumping(request: &PumpingRequest) -> Result<RegularPumpin
 pub fn analyze_context_free_pumping(
     request: &PumpingRequest,
 ) -> Result<ContextFreePumpingReport, SimulationError> {
-    if request.pumping_length == 0 {
-        return Err(SimulationError::InvalidExpression("the pumping length must be positive".into()));
-    }
-    let maximum = request.max_decompositions.max(1);
+    validate_pumping_request(request)?;
+    let maximum = request.max_decompositions.clamp(1, MAX_DECOMPOSITIONS);
     let n = request.word.len();
     let mut decompositions = Vec::new();
     let mut truncated = false;
@@ -966,6 +979,17 @@ mod tests {
             item.v.len() + item.x.len() + item.y.len() <= request.pumping_length
                 && item.v.len() + item.y.len() > 0
         }));
+    }
+
+    #[test]
+    fn pumping_rejects_unbounded_request_parameters() {
+        let request = PumpingRequest {
+            word: vec!["a".into()],
+            pumping_length: 1,
+            exponents: vec![65],
+            max_decompositions: usize::MAX,
+        };
+        assert!(analyze_regular_pumping(&request).is_err());
     }
 
     #[test]

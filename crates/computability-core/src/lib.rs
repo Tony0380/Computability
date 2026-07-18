@@ -1132,8 +1132,24 @@ pub struct LSystemRun {
     pub generations: Vec<Vec<String>>,
 }
 
+const MAX_LSYSTEM_GENERATIONS: usize = 64;
+const MAX_LSYSTEM_SYMBOLS: usize = 100_000;
+
+fn check_lsystem_bounds(generations: usize, symbols: usize) -> Result<(), SimulationError> {
+    if generations > MAX_LSYSTEM_GENERATIONS {
+        return Err(SimulationError::StepLimit(MAX_LSYSTEM_GENERATIONS));
+    }
+    if symbols > MAX_LSYSTEM_SYMBOLS {
+        return Err(SimulationError::InvalidExpression(
+            "L-system generation exceeds the supported symbol limit".into(),
+        ));
+    }
+    Ok(())
+}
+
 impl LSystem {
-    pub fn generate(&self, generations: usize) -> LSystemRun {
+    pub fn generate(&self, generations: usize) -> Result<LSystemRun, SimulationError> {
+        check_lsystem_bounds(generations, self.axiom.len())?;
         let replacements: HashMap<_, _> =
             self.rules.iter().map(|rule| (rule.predecessor.as_str(), &rule.successor)).collect();
         let mut current = self.axiom.clone();
@@ -1146,10 +1162,11 @@ impl LSystem {
                     None => next.push(symbol.clone()),
                 }
             }
+            check_lsystem_bounds(generations, next.len())?;
             current = next;
             output.push(current.clone());
         }
-        LSystemRun { generations: output }
+        Ok(LSystemRun { generations: output })
     }
 }
 
@@ -1164,7 +1181,7 @@ impl Machine for LSystem {
     }
     fn simulate(&self, generations: &Self::Input) -> Result<Self::Output, SimulationError> {
         self.validate()?;
-        Ok(self.generate(*generations))
+        self.generate(*generations)
     }
 }
 
@@ -1183,7 +1200,8 @@ pub struct ContextualLSystem {
 }
 
 impl ContextualLSystem {
-    pub fn generate(&self, generations: usize) -> LSystemRun {
+    pub fn generate(&self, generations: usize) -> Result<LSystemRun, SimulationError> {
+        check_lsystem_bounds(generations, self.axiom.len())?;
         let mut current = self.axiom.clone();
         let mut output = vec![current.clone()];
         for _ in 0..generations {
@@ -1199,10 +1217,11 @@ impl ContextualLSystem {
                     None => next.push(current[index].clone()),
                 }
             }
+            check_lsystem_bounds(generations, next.len())?;
             current = next;
             output.push(current.clone());
         }
-        LSystemRun { generations: output }
+        Ok(LSystemRun { generations: output })
     }
 }
 
@@ -1225,7 +1244,7 @@ impl Machine for ContextualLSystem {
     }
     fn simulate(&self, generations: &Self::Input) -> Result<Self::Output, SimulationError> {
         self.validate()?;
-        Ok(self.generate(*generations))
+        self.generate(*generations)
     }
 }
 
@@ -1247,7 +1266,8 @@ pub struct StochasticLSystem {
 }
 
 impl StochasticLSystem {
-    pub fn generate(&self, generations: usize) -> LSystemRun {
+    pub fn generate(&self, generations: usize) -> Result<LSystemRun, SimulationError> {
+        check_lsystem_bounds(generations, self.axiom.len())?;
         let mut seed = self.seed;
         let mut current = self.axiom.clone();
         let mut output = vec![current.clone()];
@@ -1273,10 +1293,11 @@ impl StochasticLSystem {
                     }
                 }
             }
+            check_lsystem_bounds(generations, next.len())?;
             current = next;
             output.push(current.clone());
         }
-        LSystemRun { generations: output }
+        Ok(LSystemRun { generations: output })
     }
 }
 
@@ -1304,7 +1325,7 @@ impl Machine for StochasticLSystem {
     }
     fn simulate(&self, generations: &Self::Input) -> Result<Self::Output, SimulationError> {
         self.validate()?;
-        Ok(self.generate(*generations))
+        self.generate(*generations)
     }
 }
 
@@ -2228,6 +2249,17 @@ mod tests {
             }],
         };
         assert_eq!(system.simulate(&3).unwrap(), system.simulate(&3).unwrap());
+    }
+    #[test]
+    fn lsystem_rejects_excessive_generations_before_expansion() {
+        let system = LSystem {
+            axiom: vec!["F".into()],
+            rules: vec![LSystemRule { predecessor: "F".into(), successor: vec!["F".into()] }],
+        };
+        assert_eq!(
+            system.simulate(&(MAX_LSYSTEM_GENERATIONS + 1)),
+            Err(SimulationError::StepLimit(MAX_LSYSTEM_GENERATIONS))
+        );
     }
     #[test]
     fn ll1_parser_accepts_a_predictive_grammar() {

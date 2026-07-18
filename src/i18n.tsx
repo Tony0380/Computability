@@ -16,6 +16,15 @@ export const languages: { id: Language; label: string; short: string }[] = [
 type Row = [string, string, string, string, string, string];
 const rows: Row[] = [
   [
+    "Stato di rifiuto",
+    "Reject state",
+    "Etat de rejet",
+    "Ablehnungszustand",
+    "Estado de rechazo",
+    "Estado de rejeicao",
+  ],
+  ["Output", "Output", "Sortie", "Ausgabe", "Salida", "Saida"],
+  [
     "Aree di lavoro aperte",
     "Open workspaces",
     "Espaces de travail ouverts",

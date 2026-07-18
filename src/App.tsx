@@ -26,6 +26,8 @@ import {
   transitionFieldsFromEdge,
   transitionLabelFromFields,
   graphFromDefinition,
+  isMachineKind,
+  isWorkspaceGraph,
   persistProject,
   persistWorkspaceTabs,
   projectId,
@@ -423,6 +425,7 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const requestId = useRef(0);
   const chosen = metaFor(kind);
 
   useEffect(() => {
@@ -471,7 +474,10 @@ export default function App() {
         (event.key === "Delete" || event.key === "Backspace") &&
         selection &&
         !(event.target instanceof HTMLInputElement) &&
-        !(event.target instanceof HTMLTextAreaElement)
+        !(event.target instanceof HTMLTextAreaElement) &&
+        !(event.target instanceof HTMLSelectElement) &&
+        !(event.target instanceof HTMLButtonElement) &&
+        !(event.target instanceof HTMLElement && event.target.isContentEditable)
       )
         removeSelection();
       if (event.key === "Escape") {
@@ -563,38 +569,30 @@ export default function App() {
       }),
     );
     setSelection(null);
+    setInput("0 1 1");
     setView(nextView);
     setScreen("studio");
     setResult(undefined);
   }
   function loadWorkspace(saved: SavedProject | WorkspaceTab) {
-    if (screen === "studio") setOpenTabs((current) => upsertWorkspaceTab(current, workspaceSnapshot()));
+    const currentTabs = screen === "studio" ? tabsWithActiveWorkspace() : openTabs;
     const tab: WorkspaceTab = {
       ...saved,
       input: "input" in saved ? saved.input : "0 1 1",
       view: "view" in saved ? saved.view : metaFor(saved.kind).visual ? "canvas" : "rules",
     };
-    setOpenTabs((current) => upsertWorkspaceTab(current, tab));
-    setKind(saved.kind);
-    setDefinition(saved.definition);
-    setGraph(saved.graph);
-    setProject({ id: saved.id, name: saved.name });
-    setScreen("studio");
-    setView("view" in saved ? saved.view : metaFor(saved.kind).visual ? "canvas" : "rules");
-    setInput("input" in saved ? saved.input : "0 1 1");
-    setResult(undefined);
-    setError(undefined);
-    setSelection(null);
+    setOpenTabs(upsertWorkspaceTab(currentTabs, tab));
+    applyWorkspace(tab);
   }
   function openProject(saved: SavedProject) {
     loadWorkspace(openTabs.find((item) => item.id === saved.id) ?? saved);
   }
   function closeWorkspace(id: string) {
-    const next = openTabs.filter((item) => item.id !== id);
+    const next = tabsWithActiveWorkspace().filter((item) => item.id !== id);
     setOpenTabs(next);
     if (project.id !== id) return;
     const fallback = next.at(-1);
-    if (fallback) loadWorkspace(fallback);
+    if (fallback) applyWorkspace(fallback);
     else setScreen("home");
   }
   function currentDefinition(): Definition {
@@ -611,8 +609,28 @@ export default function App() {
       updatedAt: new Date().toISOString(),
     };
   }
+  function tabsWithActiveWorkspace(): WorkspaceTab[] {
+    return screen === "studio" ? upsertWorkspaceTab(openTabs, workspaceSnapshot()) : openTabs;
+  }
+  function applyWorkspace(tab: WorkspaceTab) {
+    requestId.current += 1;
+    setKind(tab.kind);
+    setDefinition(tab.definition);
+    setGraph(tab.graph);
+    setProject({ id: tab.id, name: tab.name });
+    setScreen("studio");
+    setView(tab.view);
+    setInput(tab.input);
+    setResult(undefined);
+    setError(undefined);
+    setSelection(null);
+    setTool("select");
+    setTransitionFrom(undefined);
+    setZoom(1);
+  }
   function returnHome() {
-    if (screen === "studio") setOpenTabs((current) => upsertWorkspaceTab(current, workspaceSnapshot()));
+    if (screen === "studio") setOpenTabs(tabsWithActiveWorkspace());
+    requestId.current += 1;
     setScreen("home");
   }
   function useWorkspaceAsAlgorithmSource(workspace: WorkspaceTab) {
@@ -625,6 +643,7 @@ export default function App() {
     setError(undefined);
   }
   function openAlgorithmResult(nextKind: MachineKind, nextDefinition: Definition, name: string) {
+    requestId.current += 1;
     const nextProject = { id: projectId(), name };
     const nextGraph = graphFromDefinition(nextKind, nextDefinition);
     const nextView = metaFor(nextKind).visual ? "canvas" : "rules";
@@ -634,6 +653,9 @@ export default function App() {
     setProject(nextProject);
     setView(nextView);
     setSelection(null);
+    setTool("select");
+    setTransitionFrom(undefined);
+    setZoom(1);
     setResult(undefined);
     setError(undefined);
     setOpenTabs((current) =>
@@ -691,20 +713,25 @@ export default function App() {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const parsed = JSON.parse(await file.text()) as Partial<SavedProject> & Definition;
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new Error("invalid JSON shape");
+      const candidate = parsed as Record<string, unknown>;
       const nextDefinition = (
-        parsed.definition && typeof parsed.definition === "object" ? parsed.definition : parsed
+        candidate.definition &&
+        typeof candidate.definition === "object" &&
+        !Array.isArray(candidate.definition)
+          ? candidate.definition
+          : candidate
       ) as Definition;
-      const nextKind = (
-        typeof parsed.kind === "string" && parsed.kind in examples
-          ? parsed.kind
-          : inferMachineKind(nextDefinition)
-      ) as MachineKind | undefined;
+      const nextKind = isMachineKind(candidate.kind) ? candidate.kind : inferMachineKind(nextDefinition);
       if (!nextKind) throw new Error("Machine kind could not be inferred from this JSON file.");
-      const nextGraph = parsed.graph?.nodes ? parsed.graph : graphFromDefinition(nextKind, nextDefinition);
+      const nextGraph = isWorkspaceGraph(candidate.graph)
+        ? syncGraphFromDefinition(nextKind, nextDefinition, candidate.graph)
+        : graphFromDefinition(nextKind, nextDefinition);
       const nextProject = {
-        id: parsed.id ?? projectId(),
-        name: parsed.name ?? file.name.replace(/\.json$/i, ""),
+        id: typeof candidate.id === "string" ? candidate.id : projectId(),
+        name: typeof candidate.name === "string" ? candidate.name : file.name.replace(/\.json$/i, ""),
       };
       setKind(nextKind);
       setDefinition(nextDefinition);
@@ -741,6 +768,7 @@ export default function App() {
     setError(undefined);
   }
   async function run() {
+    const activeRequest = ++requestId.current;
     try {
       const parsed = currentDefinition();
       const wrapped =
@@ -754,16 +782,19 @@ export default function App() {
         input: tokenise(input),
         tapeInputs: kind === "multiTuring" ? input.split("|").map(tokenise) : undefined,
       });
+      if (activeRequest !== requestId.current) return;
       setResult(response);
       setError(undefined);
       setSidePanel("run");
     } catch (cause) {
+      if (activeRequest !== requestId.current) return;
       setError(String(cause));
       setResult(undefined);
       setSidePanel("run");
     }
   }
   async function performModelAction(action: ModelAction) {
+    const activeRequest = ++requestId.current;
     try {
       const parsed = currentDefinition();
       if (action === "cyk" || action === "ll1") {
@@ -771,6 +802,7 @@ export default function App() {
           request: { kind: action, definition: parsed },
           input: tokenise(input),
         });
+        if (activeRequest !== requestId.current) return;
         setResult(response);
         setError(undefined);
         setSidePanel("run");
@@ -780,6 +812,7 @@ export default function App() {
         action === "cfg_to_pda"
           ? await invoke<Definition>("cfg_to_pda", { grammar: parsed })
           : await invoke<Definition>("transform", { request: { kind: action, definition: parsed } });
+      if (activeRequest !== requestId.current) return;
       const nextKind: MachineKind =
         action === "cfg_to_pda"
           ? "pda"
@@ -801,6 +834,7 @@ export default function App() {
         }),
       );
     } catch (cause) {
+      if (activeRequest !== requestId.current) return;
       setError(String(cause));
       setSidePanel("run");
     }
@@ -936,24 +970,36 @@ export default function App() {
     }));
   }
   function renameNode(nextId: string) {
+    const trimmedId = nextId.trim();
     if (
       !selectedNode ||
-      !nextId.trim() ||
-      graph.nodes.some((node) => node.id === nextId && node.id !== selectedNode.id)
+      !trimmedId ||
+      graph.nodes.some((node) => node.id === trimmedId && node.id !== selectedNode.id)
     )
       return;
     const oldId = selectedNode.id;
+    const renamedId =
+      kind === "petri" && (selectedNode.role === "place" || selectedNode.role === "event")
+        ? `${selectedNode.role}:${trimmedId}`
+        : trimmedId;
+    if (graph.nodes.some((node) => node.id === renamedId && node.id !== oldId)) return;
     setGraph((current) => ({
       nodes: current.nodes.map((node) =>
-        node.id === oldId ? { ...node, id: nextId, label: node.label === oldId ? nextId : node.label } : node,
+        node.id === oldId
+          ? {
+              ...node,
+              id: renamedId,
+              label: kind === "petri" || node.label === oldId ? trimmedId : node.label,
+            }
+          : node,
       ),
       edges: current.edges.map((edge) => ({
         ...edge,
-        from: edge.from === oldId ? nextId : edge.from,
-        to: edge.to === oldId ? nextId : edge.to,
+        from: edge.from === oldId ? renamedId : edge.from,
+        to: edge.to === oldId ? renamedId : edge.to,
       })),
     }));
-    setSelection({ type: "node", id: nextId });
+    setSelection({ type: "node", id: renamedId });
   }
   function updateEdge(patch: Partial<GraphEdge>) {
     if (!selectedEdge) return;
@@ -1976,6 +2022,7 @@ function Graph({
           <span className="node-body">
             {node.role === "start" || node.role === "start-accept" ? <i className="start-arrow">→</i> : null}
             {node.label}
+            {node.output !== undefined && <small className="node-output">{node.output}</small>}
             {node.tokens !== undefined && node.tokens > 0 && <b className="token-count">{node.tokens}</b>}
           </span>
         </button>
@@ -2185,7 +2232,19 @@ function Properties({
                 <option value="start">{t("Stato iniziale")}</option>
                 <option value="accept">{t("Stato finale")}</option>
                 <option value="start-accept">{t("Iniziale e finale")}</option>
+                {(model.kind === "turing" || model.kind === "multiTuring") && (
+                  <option value="reject">{t("Stato di rifiuto")}</option>
+                )}
               </select>
+            </label>
+          )}
+          {model.kind === "moore" && (
+            <label>
+              {t("Output")}
+              <input
+                value={node.output ?? ""}
+                onChange={(event) => onUpdateNode({ output: event.target.value })}
+              />
             </label>
           )}
           {node.tokens !== undefined && (
@@ -2195,7 +2254,10 @@ function Properties({
                 type="number"
                 min="0"
                 value={node.tokens}
-                onChange={(event) => onUpdateNode({ tokens: Number(event.target.value) })}
+                onChange={(event) => {
+                  const tokens = Number(event.target.value);
+                  onUpdateNode({ tokens: Number.isSafeInteger(tokens) && tokens >= 0 ? tokens : 0 });
+                }}
               />
             </label>
           )}
@@ -2448,6 +2510,13 @@ function UpdateDialog({
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  useEffect(() => {
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", dismiss);
+    return () => window.removeEventListener("keydown", dismiss);
+  }, [onClose]);
   return (
     <div
       className="dialog-backdrop"
@@ -2456,7 +2525,7 @@ function UpdateDialog({
       }}
     >
       <section className="update-dialog" role="dialog" aria-modal="true" aria-labelledby="update-title">
-        <button className="dialog-close" onClick={onClose} aria-label={t("Chiudi")}>
+        <button autoFocus className="dialog-close" onClick={onClose} aria-label={t("Chiudi")}>
           <Icon name="close" />
         </button>
         <span className={`update-symbol status-${status}`}>
@@ -2528,6 +2597,13 @@ function ThemeDialog({
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  useEffect(() => {
+    const dismiss = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", dismiss);
+    return () => window.removeEventListener("keydown", dismiss);
+  }, [onClose]);
   return (
     <div
       className="dialog-backdrop"
@@ -2536,7 +2612,7 @@ function ThemeDialog({
       }}
     >
       <section className="theme-dialog" role="dialog" aria-modal="true" aria-labelledby="theme-title">
-        <button className="dialog-close" onClick={onClose} aria-label={t("Chiudi")}>
+        <button autoFocus className="dialog-close" onClick={onClose} aria-label={t("Chiudi")}>
           <Icon name="close" />
         </button>
         <p className="kicker">{t("Aspetto")}</p>

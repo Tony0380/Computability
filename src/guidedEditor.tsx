@@ -158,6 +158,7 @@ function SymbolListEditor({
 }
 
 function blankLike(value: unknown): unknown {
+  if (value === null) return null;
   if (typeof value === "string") return "";
   if (typeof value === "number") return 1;
   if (typeof value === "boolean") return false;
@@ -175,7 +176,7 @@ function templateFor(kind: MachineKind, name: string): RecordValue {
     if (kind === "multiTuring") return { from: "", read: [], write: [], movements: [], to: "" };
     return { from: "", symbol: "", to: "" };
   }
-  if (name === "productions") return { left: "", terminal: "", next_variable: "" };
+  if (name === "productions") return { left: "", terminal: "", next_variable: null };
   if (name === "rules") {
     if (kind === "lsystem") return { predecessor: "", successor: [] };
     if (kind === "contextualLsystem")
@@ -238,9 +239,18 @@ function PrimitiveField({
       <input
         type={typeof value === "number" ? "number" : "text"}
         value={value ?? ""}
-        onChange={(event) =>
-          onChange(typeof value === "number" ? Number(event.target.value) : event.target.value)
-        }
+        onChange={(event) => {
+          if (typeof value !== "number") {
+            onChange(event.target.value);
+            return;
+          }
+          const number = event.target.valueAsNumber;
+          if (!Number.isFinite(number)) return;
+          const normalized = ["weight", "max_configurations", "max_derivations", "tape_count"].includes(name)
+            ? Math.max(1, Math.floor(number))
+            : number;
+          onChange(normalized);
+        }}
         placeholder={name === "next_variable" ? "∅" : undefined}
       />
     </label>
@@ -259,6 +269,8 @@ function DictionaryEditor({
   const { t } = useI18n();
   const entries = Object.entries(value);
   function update(index: number, key: string, nextValue: unknown) {
+    if (key !== entries[index]?.[0] && entries.some(([existing], item) => item !== index && existing === key))
+      return;
     onChange(
       Object.fromEntries(
         entries.map(([oldKey, oldValue], item) => (item === index ? [key, nextValue] : [oldKey, oldValue])),
@@ -268,7 +280,7 @@ function DictionaryEditor({
   return (
     <div className="dictionary-editor">
       {entries.map(([key, item], index) => (
-        <div className="dictionary-row" key={`${key}-${index}`}>
+        <div className="dictionary-row" key={`${name}-${index}`}>
           <input
             aria-label={t("Nome")}
             value={key}
@@ -308,6 +320,26 @@ function DictionaryEditor({
   );
 }
 
+function normalizeDefinition(kind: MachineKind, definition: Definition): Definition {
+  if (kind !== "multiTuring") return definition;
+  const tapeCount = Math.min(8, Math.max(1, Math.floor(Number(definition.tape_count) || 1)));
+  const symbols = (value: unknown, fallback: string) => {
+    const list = Array.isArray(value) ? value.map(String) : [];
+    return Array.from({ length: tapeCount }, (_, index) => list[index] ?? fallback);
+  };
+  const transitions = Array.isArray(definition.transitions)
+    ? definition.transitions.filter(isRecord).map((transition) => ({
+        ...transition,
+        read: symbols(transition.read, "□"),
+        write: symbols(transition.write, "□"),
+        movements: symbols(transition.movements, "Stay").map((movement) =>
+          ["Left", "Right", "Stay"].includes(movement) ? movement : "Stay",
+        ),
+      }))
+    : [];
+  return { ...definition, tape_count: tapeCount, transitions };
+}
+
 function ObjectFields({
   kind,
   value,
@@ -345,7 +377,6 @@ function ObjectList({
   onChange: (value: RecordValue[]) => void;
 }) {
   const { t } = useI18n();
-  const sample = value[0] ?? templateFor(kind, name);
   return (
     <div className="rule-list">
       {value.map((row, index) => (
@@ -367,7 +398,10 @@ function ObjectList({
           />
         </article>
       ))}
-      <button className="rule-add" onClick={() => onChange([...value, blankLike(sample) as RecordValue])}>
+      <button
+        className="rule-add"
+        onClick={() => onChange([...value, blankLike(templateFor(kind, name)) as RecordValue])}
+      >
         + {t("Aggiungi regola")}
       </button>
     </div>
@@ -450,7 +484,7 @@ export function GuidedDefinitionEditor({
               kind={model.kind}
               name={key}
               value={value}
-              onChange={(next) => onChange({ ...definition, [key]: next })}
+              onChange={(next) => onChange(normalizeDefinition(model.kind, { ...definition, [key]: next }))}
             />
           </section>
         ))}

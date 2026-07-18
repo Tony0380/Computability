@@ -86,6 +86,29 @@ describe("visual workspace conversion", () => {
     edge.bend = -64;
     expect(edge.bend).toBe(-64);
   });
+  it("keeps renamed transition endpoints authoritative over cached fields", () => {
+    const graph = graphFromDefinition("dfa", examples.dfa);
+    graph.nodes[0] = { ...graph.nodes[0], id: "renamed", label: "renamed" };
+    graph.edges = graph.edges.map((edge) => ({
+      ...edge,
+      from: edge.from === "q0" ? "renamed" : edge.from,
+      to: edge.to === "q0" ? "renamed" : edge.to,
+    }));
+    const restored = definitionFromGraph("dfa", examples.dfa, graph);
+    expect(restored.transitions).toContainEqual({ from: "renamed", symbol: "0", to: "q1" });
+  });
+  it("round-trips Moore output without parsing its display label", () => {
+    const definition = { ...examples.moore, state_outputs: { even: "a/b", odd: "" } };
+    const graph = graphFromDefinition("moore", definition);
+    expect(graph.nodes.find((node) => node.id === "even")?.output).toBe("a/b");
+    expect(definitionFromGraph("moore", definition, graph).state_outputs).toEqual({ even: "a/b", odd: "" });
+  });
+  it("preserves Turing reject states independently from accepting states", () => {
+    const definition = { ...examples.turing, rejecting_states: ["reject"] };
+    const graph = graphFromDefinition("turing", definition);
+    graph.nodes.push({ id: "reject", label: "reject", role: "reject", x: 420, y: 160 });
+    expect(definitionFromGraph("turing", definition, graph).rejecting_states).toEqual(["reject"]);
+  });
   it("renders Petri places, events and weighted arcs", () => {
     const graph = graphFromDefinition("petri", examples.petri);
 
@@ -120,5 +143,9 @@ describe("workspace tabs", () => {
     const updated = upsertWorkspaceTab(two, tab("a", "Automa aggiornato"));
     expect(updated.map((item) => item.id)).toEqual(["a", "b"]);
     expect(updated[0].name).toBe("Automa aggiornato");
+  });
+  it("never evicts an open workspace when more than twelve are present", () => {
+    const tabs = Array.from({ length: 13 }, (_, index) => tab(String(index), `Area ${index}`));
+    expect(upsertWorkspaceTab(tabs, tab("13", "Area 13"))).toHaveLength(14);
   });
 });

@@ -73,15 +73,11 @@ export const theories: Record<MachineKind, MachineTheory> = {
     ],
   },
   pda: {
-    tuple: "M = (Q, Σ, Γ, δ, q₀, Z₀, F)",
-    summary: "Un automa a pila aggiunge una memoria LIFO non limitata a un controllo a stati finiti.",
-    components: [
-      ...finiteComponents,
-      { symbol: "Γ", label: "Alfabeto della pila" },
-      { symbol: "Z₀", label: "Simbolo iniziale della pila" },
-    ],
-    dynamics: "δ : Q × (Σ ∪ {ε}) × Γ* → 𝒫(Q × Γ*)",
-    acceptance: "Per stato finale: (q₀, w, Z₀) ⊢* (q, ε, γ), q ∈ F · oppure per pila vuota",
+    tuple: "M = (Q, Σ, Γ, δ, q₀, F)",
+    summary: "Un automa a pila aggiunge una memoria LIFO inizialmente vuota a un controllo a stati finiti.",
+    components: [...finiteComponents, { symbol: "Γ", label: "Alfabeto della pila" }],
+    dynamics: "δ : Q × (Σ ∪ {ε}) × Γ* → 𝒫(Q × Γ*) con pop/push espliciti per ogni regola",
+    acceptance: "Per stato finale: (q₀, w, ε) ⊢* (q, ε, γ), q ∈ F · oppure per pila vuota",
     power: "Linguaggi context-free · Tipo 2",
     notes: [
       "Una configurazione contiene stato, input residuo e pila.",

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { metaFor } from "./catalog";
 import type { Definition, MachineKind } from "./domain";
 import { useI18n, type Language } from "./i18n";
@@ -649,6 +649,7 @@ export function AlgorithmLab({
   const [result, setResult] = useState<AlgorithmResponse>();
   const [error, setError] = useState<string>();
   const [running, setRunning] = useState(false);
+  const requestId = useRef(0);
   const selected = algorithms.find((item) => item.id === selectedId) ?? algorithms[0];
   const visible = algorithms.filter((item) => family === "all" || item.family === family);
   const compatible = !selected.sourceKinds || selected.sourceKinds.includes(kind);
@@ -656,31 +657,52 @@ export function AlgorithmLab({
   const dfaWorkspaces = workspaces.filter((item) => item.kind === "dfa");
 
   async function run() {
+    const exponentTokens = tokenise(exponentText);
+    const exponents = exponentTokens.map((value) => Number(value));
+    if (
+      (selected.id === "regular_pumping" || selected.id === "context_free_pumping") &&
+      (!Number.isSafeInteger(pumpingLength) ||
+        pumpingLength < 1 ||
+        exponentTokens.length === 0 ||
+        exponents.some((value) => !Number.isSafeInteger(value) || value < 0 || value > 64))
+    ) {
+      setError("Use a positive pumping length and whole-number exponents from 0 to 64.");
+      return;
+    }
+    const activeRequest = ++requestId.current;
     setRunning(true);
     setError(undefined);
     try {
-      let input: unknown = definition;
+      const sourceDefinition =
+        sourceWorkspaceId === "current"
+          ? definition
+          : (sourceWorkspaces.find((item) => item.id === sourceWorkspaceId)?.definition ?? definition);
+      let input: unknown = sourceDefinition;
       if (selected.id === "dfa_equivalence") {
-        const right = dfaWorkspaces.find((item) => item.id === rightWorkspaceId)?.definition ?? definition;
-        input = { left: definition, right };
+        const right =
+          dfaWorkspaces.find((item) => item.id === rightWorkspaceId)?.definition ?? sourceDefinition;
+        input = { left: sourceDefinition, right };
       } else if (selected.id === "cyk") {
-        input = { grammar: definition, word: tokenise(word) };
+        input = { grammar: sourceDefinition, word: tokenise(word) };
       } else if (selected.id === "regular_pumping" || selected.id === "context_free_pumping") {
         input = {
           word: tokenise(word),
           pumping_length: pumpingLength,
-          exponents: tokenise(exponentText)
-            .map(Number)
-            .filter((value) => Number.isInteger(value) && value >= 0),
+          exponents,
           max_decompositions: 500,
         };
       }
-      setResult(await invoke<AlgorithmResponse>("run_algorithm", { request: { kind: selected.id, input } }));
+      const response = await invoke<AlgorithmResponse>("run_algorithm", {
+        request: { kind: selected.id, input },
+      });
+      if (activeRequest !== requestId.current) return;
+      setResult(response);
     } catch (cause) {
+      if (activeRequest !== requestId.current) return;
       setError(String(cause));
       setResult(undefined);
     } finally {
-      setRunning(false);
+      if (activeRequest === requestId.current) setRunning(false);
     }
   }
 
@@ -701,9 +723,12 @@ export function AlgorithmLab({
     if (!result) return;
     const payload = result.result;
     if (result.kind === "automaton" && payload.result) {
-      const nextKind: MachineKind = ["subset_construction", "dfa_minimization"].includes(selected.id)
+      const algorithm = String(payload.algorithm ?? selected.id);
+      const nextKind: MachineKind = ["subset_construction", "dfa_minimization"].includes(algorithm)
         ? "dfa"
-        : "nfa";
+        : algorithm === "remove_unreachable" && (kind === "dfa" || kind === "nfa")
+          ? kind
+          : "nfa";
       onOpenResult(nextKind, payload.result as Definition, selected.title[language]);
     } else if (result.kind === "grammar" && payload.result) {
       onOpenResult("cfg", payload.result as Definition, selected.title[language]);
@@ -750,6 +775,7 @@ export function AlgorithmLab({
                 key={item.id}
                 className={selected.id === item.id ? "active" : ""}
                 onClick={() => {
+                  requestId.current += 1;
                   setSelectedId(item.id);
                   setResult(undefined);
                   setError(undefined);
@@ -826,7 +852,10 @@ export function AlgorithmLab({
                     type="number"
                     min={1}
                     value={pumpingLength}
-                    onChange={(event) => setPumpingLength(Number(event.target.value))}
+                    onChange={(event) => {
+                      const value = event.target.valueAsNumber;
+                      if (Number.isSafeInteger(value) && value >= 1) setPumpingLength(value);
+                    }}
                   />
                 </label>
                 <label>
@@ -899,6 +928,11 @@ export function AlgorithmLab({
                   <h4>
                     {text.decompositions} ({decompositionList.length})
                   </h4>
+                  {result.result.truncated === true && (
+                    <p className="algorithm-guidance">
+                      Only the first {decompositionList.length} decompositions are shown.
+                    </p>
+                  )}
                   {(decompositionList as Record<string, unknown>[]).slice(0, 40).map((item, index) => (
                     <article key={index}>
                       <code>
