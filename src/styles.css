@@ -669,6 +669,63 @@ button:disabled {
   text-align: center;
   font: 700 11px monospace;
 }
+.algorithm-study {
+  margin: 28px 0 0;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--brand-soft) 44%, var(--surface));
+}
+.algorithm-study > summary {
+  cursor: pointer;
+  padding: 15px 18px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.025em;
+}
+.algorithm-study > summary::marker {
+  color: var(--brand);
+}
+.algorithm-study > summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -3px;
+}
+.algorithm-study-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  border-top: 1px solid var(--line);
+  background: var(--line);
+}
+.algorithm-study-grid > section {
+  padding: 17px 18px;
+  background: var(--surface);
+}
+.algorithm-study-grid h3 {
+  margin: 0 0 7px;
+  color: var(--brand);
+  font: 800 10px monospace;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+.algorithm-study-grid p,
+.algorithm-study-grid li {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.algorithm-study-procedure,
+.algorithm-study-example {
+  grid-column: 1 / -1;
+}
+.algorithm-study-grid ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
 .algorithm-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -879,6 +936,13 @@ button:disabled {
   }
   .algorithm-title-row {
     grid-template-columns: 1fr;
+  }
+  .algorithm-study-grid {
+    grid-template-columns: 1fr;
+  }
+  .algorithm-study-procedure,
+  .algorithm-study-example {
+    grid-column: auto;
   }
   .algorithm-code {
     justify-self: start;

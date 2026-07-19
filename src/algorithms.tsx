@@ -1,25 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useRef, useState } from "react";
+import { algorithmTheory, type AlgorithmTheoryId } from "./algorithmTheory";
 import { metaFor } from "./catalog";
 import type { Definition, MachineKind } from "./domain";
 import { useI18n, type Language } from "./i18n";
 import type { WorkspaceTab } from "./workspace";
 
-type AlgorithmId =
-  | "thompson"
-  | "subset_construction"
-  | "dfa_minimization"
-  | "state_elimination"
-  | "epsilon_elimination"
-  | "remove_unreachable"
-  | "dfa_equivalence"
-  | "regular_grammar_to_nfa"
-  | "cfg_to_pda"
-  | "chomsky_normal_form"
-  | "cyk"
-  | "ll1_analysis"
-  | "regular_pumping"
-  | "context_free_pumping";
+type AlgorithmId = AlgorithmTheoryId;
 
 type Localized = Record<Language, string>;
 
@@ -476,6 +463,14 @@ const ui = {
     exponents: "Esponenti da verificare",
     second: "Secondo DFA",
     theory: "Fondamento formale",
+    study: "Studia l'algoritmo",
+    definition: "Definizione",
+    notation: "Notazione",
+    prerequisites: "Prima di eseguire",
+    procedure: "Procedura",
+    interpretation: "Come leggere il risultato",
+    limits: "Limiti e complessita",
+    example: "Esempio guidato",
     result: "Risultato",
     steps: "Passaggi",
     export: "Esporta risultato",
@@ -501,6 +496,14 @@ const ui = {
     exponents: "Exponents to inspect",
     second: "Second DFA",
     theory: "Formal basis",
+    study: "Study the algorithm",
+    definition: "Definition",
+    notation: "Notation",
+    prerequisites: "Before you run it",
+    procedure: "Procedure",
+    interpretation: "How to read the result",
+    limits: "Limits and complexity",
+    example: "Worked example",
     result: "Result",
     steps: "Steps",
     export: "Export result",
@@ -526,6 +529,14 @@ const ui = {
     exponents: "Exposants a examiner",
     second: "Deuxieme AFD",
     theory: "Base formelle",
+    study: "Etudier l'algorithme",
+    definition: "Definition",
+    notation: "Notation",
+    prerequisites: "Avant l'execution",
+    procedure: "Procedure",
+    interpretation: "Lire le resultat",
+    limits: "Limites et complexite",
+    example: "Exemple guide",
     result: "Resultat",
     steps: "Etapes",
     export: "Exporter le resultat",
@@ -551,6 +562,14 @@ const ui = {
     exponents: "Zu prufende Exponenten",
     second: "Zweiter DFA",
     theory: "Formale Grundlage",
+    study: "Algorithmus verstehen",
+    definition: "Definition",
+    notation: "Notation",
+    prerequisites: "Vor der Ausfuhrung",
+    procedure: "Verfahren",
+    interpretation: "Ergebnis lesen",
+    limits: "Grenzen und Komplexitat",
+    example: "Gefuhrtes Beispiel",
     result: "Ergebnis",
     steps: "Schritte",
     export: "Ergebnis exportieren",
@@ -576,6 +595,14 @@ const ui = {
     exponents: "Exponentes a comprobar",
     second: "Segundo AFD",
     theory: "Base formal",
+    study: "Estudiar el algoritmo",
+    definition: "Definicion",
+    notation: "Notacion",
+    prerequisites: "Antes de ejecutar",
+    procedure: "Procedimiento",
+    interpretation: "Como leer el resultado",
+    limits: "Limites y complejidad",
+    example: "Ejemplo guiado",
     result: "Resultado",
     steps: "Pasos",
     export: "Exportar resultado",
@@ -601,6 +628,14 @@ const ui = {
     exponents: "Expoentes a verificar",
     second: "Segundo AFD",
     theory: "Base formal",
+    study: "Estudar o algoritmo",
+    definition: "Definicao",
+    notation: "Notacao",
+    prerequisites: "Antes de executar",
+    procedure: "Procedimento",
+    interpretation: "Como ler o resultado",
+    limits: "Limites e complexidade",
+    example: "Exemplo guiado",
     result: "Resultado",
     steps: "Passos",
     export: "Exportar resultado",
@@ -620,6 +655,52 @@ function tokenise(value: string): string[] {
 function responseSteps(response?: AlgorithmResponse): AlgorithmStep[] {
   const steps = response?.result.steps;
   return Array.isArray(steps) ? (steps as AlgorithmStep[]) : [];
+}
+
+function AlgorithmStudy({ id, language }: { id: AlgorithmId; language: Language }) {
+  const text = ui[language];
+  const study = algorithmTheory[id];
+  const sectionId = `algorithm-study-${id}`;
+
+  return (
+    <details className="algorithm-study" open>
+      <summary id={sectionId}>{text.study}</summary>
+      <div className="algorithm-study-grid" aria-labelledby={sectionId}>
+        <section>
+          <h3>{text.definition}</h3>
+          <p>{study.definition[language]}</p>
+        </section>
+        <section>
+          <h3>{text.notation}</h3>
+          <p>{study.notation[language]}</p>
+        </section>
+        <section>
+          <h3>{text.prerequisites}</h3>
+          <p>{study.prerequisites[language]}</p>
+        </section>
+        <section className="algorithm-study-procedure">
+          <h3>{text.procedure}</h3>
+          <ol>
+            {study.procedure.map((step) => (
+              <li key={step[language]}>{step[language]}</li>
+            ))}
+          </ol>
+        </section>
+        <section>
+          <h3>{text.interpretation}</h3>
+          <p>{study.interpretation[language]}</p>
+        </section>
+        <section>
+          <h3>{text.limits}</h3>
+          <p>{study.limits[language]}</p>
+        </section>
+        <section className="algorithm-study-example">
+          <h3>{text.example}</h3>
+          <p>{study.example[language]}</p>
+        </section>
+      </div>
+    </details>
+  );
 }
 
 export function AlgorithmLab({
@@ -798,6 +879,8 @@ export function AlgorithmLab({
               <p>{selected.theory[language]}</p>
             </div>
           </div>
+
+          <AlgorithmStudy id={selected.id} language={language} />
 
           <div className="algorithm-controls">
             {selected.sourceKinds && (
