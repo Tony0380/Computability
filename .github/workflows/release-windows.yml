@@ -53,7 +53,7 @@ jobs:
           Copy-Item "$($exe.FullName).sig" "release-assets/Computability_${version}_windows-x86_64-setup.exe.sig"
           Copy-Item $msi.FullName "release-assets/Computability_${version}_windows-x86_64.msi"
           Copy-Item "$($msi.FullName).sig" "release-assets/Computability_${version}_windows-x86_64.msi.sig"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
         with:
           name: Computability-Windows-${{ inputs.tag }}
           if-no-files-found: error
@@ -115,7 +115,7 @@ jobs:
           cp "$appimage" "release-assets/Computability_${version}_linux-x86_64.AppImage"
           cp "$appimage.sig" "release-assets/Computability_${version}_linux-x86_64.AppImage.sig"
           cp "$deb" "release-assets/Computability_${version}_linux-x86_64.deb"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
         with:
           name: Computability-Linux-${{ inputs.tag }}
           if-no-files-found: error
@@ -157,7 +157,7 @@ jobs:
           cp "$archive" "release-assets/Computability_${version}_macos-x86_64.app.tar.gz"
           cp "$archive.sig" "release-assets/Computability_${version}_macos-x86_64.app.tar.gz.sig"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
         with:
           name: Computability-macOS-x86-${{ inputs.tag }}
           if-no-files-found: error
@@ -199,7 +199,7 @@ jobs:
           cp "$archive" "release-assets/Computability_${version}_macos-aarch64.app.tar.gz"
           cp "$archive.sig" "release-assets/Computability_${version}_macos-aarch64.app.tar.gz.sig"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.0
         with:
           name: Computability-macOS-arm-${{ inputs.tag }}
           if-no-files-found: error
